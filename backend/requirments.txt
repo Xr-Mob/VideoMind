@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+google-generativeai
+youtube-transcript-api
+python-dotenv
