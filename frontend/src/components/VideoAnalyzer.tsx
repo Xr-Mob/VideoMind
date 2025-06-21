@@ -1,18 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Chatbot } from "./Chatbot";
+import { VideoTimestamps } from "./VideoTimestamps";
+import { VideoDisplay, VideoDisplayRef } from "./VideoDisplay";
 
 export function YouTubeAnalyzer() {
   const [videoUrl, setVideoUrl] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [showTimestamps, setShowTimestamps] = useState(false);
+  const [showVideoDisplay, setShowVideoDisplay] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
   const [summary, setSummary] = useState("");
   const [error, setError] = useState("");
+  
+  const videoDisplayRef = useRef<VideoDisplayRef>(null);
 
-  const analyzeVideo = async () => {
+  const isValidYouTubeUrl = (url: string) => {
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/;
+    return youtubeRegex.test(url);
+  };
+
+  const handleTimestampClick = (seconds: number) => {
+    // Navigate the video to the specified timestamp
+    if (videoDisplayRef.current) {
+      videoDisplayRef.current.navigateToTime(seconds);
+    }
+    console.log(`Navigating to ${seconds} seconds`);
+  };
+
+  const handleAnalyze = async () => {
+    if (!videoUrl.trim() || !isValidYouTubeUrl(videoUrl)) return;
+
     // Reset states
-    setLoading(true);
+    setIsAnalyzing(true);
     setError("");
     setSummary("");
+    setShowChatbot(false);
+    setShowTimestamps(false);
+    setShowVideoDisplay(false);
+    setAnalysisComplete(false);
 
     try {
       const response = await fetch("http://localhost:8000/analyze_video", {
@@ -31,6 +59,10 @@ export function YouTubeAnalyzer() {
 
       if (data.success && data.video_summary) {
         setSummary(data.video_summary);
+        setAnalysisComplete(true);
+        setShowChatbot(true);
+        setShowTimestamps(true);
+        setShowVideoDisplay(true);
       } else {
         throw new Error("Failed to generate summary");
       }
@@ -38,8 +70,20 @@ export function YouTubeAnalyzer() {
       setError(err.message || "An error occurred while analyzing the video");
       console.error("Error:", err);
     } finally {
-      setLoading(false);
+      setIsAnalyzing(false);
     }
+
+    // Comment out mock simulation - now using real backend
+    /*
+    // Simulate analysis delay and show components immediately
+    setTimeout(() => {
+      setAnalysisComplete(true);
+      setShowChatbot(true);
+      setShowTimestamps(true);
+      setShowVideoDisplay(true);
+      setIsAnalyzing(false);
+    }, 1000);
+    */
   };
 
   const formatSummary = (text: string) => {
@@ -108,38 +152,25 @@ export function YouTubeAnalyzer() {
 
         <button
           type="button"
-          onClick={analyzeVideo}
-          disabled={!videoUrl.trim() || loading}
-          className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900 flex items-center justify-center"
+          disabled={!videoUrl.trim() || !isValidYouTubeUrl(videoUrl) || isAnalyzing}
+          onClick={handleAnalyze}
+          className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
         >
-          {loading ? (
-            <>
-              <svg 
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" 
-                xmlns="http://www.w3.org/2000/svg" 
-                fill="none" 
-                viewBox="0 0 24 24"
-              >
-                <circle 
-                  className="opacity-25" 
-                  cx="12" 
-                  cy="12" 
-                  r="10" 
-                  stroke="currentColor" 
-                  strokeWidth="4"
-                />
-                <path 
-                  className="opacity-75" 
-                  fill="currentColor" 
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Analyzing Video...
-            </>
+          {isAnalyzing ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Analyzing Video...</span>
+            </div>
           ) : (
             "Analyze Video"
           )}
         </button>
+
+        {!isValidYouTubeUrl(videoUrl) && videoUrl.trim() && (
+          <p className="text-red-400 text-sm">
+            Please enter a valid YouTube video URL
+          </p>
+        )}
       </div>
 
       {/* Error Message */}
@@ -165,7 +196,7 @@ export function YouTubeAnalyzer() {
       )}
 
       {/* Summary Display */}
-      {summary && !loading && (
+      {summary && !isAnalyzing && (
         <div className="space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white">Video Summary</h2>
@@ -173,6 +204,10 @@ export function YouTubeAnalyzer() {
               onClick={() => {
                 setSummary("");
                 setVideoUrl("");
+                setShowChatbot(false);
+                setShowTimestamps(false);
+                setShowVideoDisplay(false);
+                setAnalysisComplete(false);
               }}
               className="text-sm text-zinc-400 hover:text-white transition-colors"
             >
@@ -185,6 +220,36 @@ export function YouTubeAnalyzer() {
               {formatSummary(summary)}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Video Display Section */}
+      {showVideoDisplay && analysisComplete && (
+        <div className="mt-8">
+          <VideoDisplay 
+            ref={videoDisplayRef}
+            videoUrl={videoUrl} 
+            isVisible={showVideoDisplay}
+            onTimestampClick={handleTimestampClick}
+          />
+        </div>
+      )}
+
+      {/* Video Timestamps Section */}
+      {showTimestamps && analysisComplete && (
+        <div className="mt-8">
+          <VideoTimestamps 
+            videoUrl={videoUrl} 
+            isVisible={showTimestamps}
+            onTimestampClick={handleTimestampClick}
+          />
+        </div>
+      )}
+
+      {/* Chatbot Section */}
+      {showChatbot && analysisComplete && (
+        <div className="mt-8">
+          <Chatbot videoUrl={videoUrl} isVisible={showChatbot} />
         </div>
       )}
     </div>
