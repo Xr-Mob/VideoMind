@@ -7,7 +7,7 @@ Jeesmon C - @Xr-Mob
 Updated on: 21 June 2025
 '''
 import asyncio
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
@@ -21,8 +21,16 @@ from urllib.parse import urlparse, parse_qs
 load_dotenv()
 
 # Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')  # Using 1.5 flash for text analysis
+try:
+    gen_api_key=os.getenv("GEMINI_API_KEY")
+    if not gen_api_key:
+        raise ValueError("API Key not found in enviornment variables!")
+    genai.configure(api_key=gen_api_key)
+    #Text analysis model
+    model = genai.GenerativeModel('gemini-2.0-flash')
+except ValueError as e:
+    print(f"Configuration Error: {e}")
+    model =None
 
 app = FastAPI(
     title="VIDEOMIND-AI",
@@ -39,9 +47,22 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Request model
+# Request models
 class UrlAnalyzeRequest(BaseModel):
     youtube_url: str
+
+class VisualSearchrequest(BaseModel):
+    youtube_url: str
+    search_query: str
+
+class VideoDescription(BaseModel):
+    timestamp: int = Field(description="Timestamp in seconds for the described scene.")
+    description: str = Field(description="Textual description of the visual content at this timestamp.")
+    embedding: list[float] = Field(description="Embedding vector for the description.")
+
+class VideoEmbeddingsResponse(BaseModel):
+    video_id: str
+    descriptions: list[VideoDescription]
 
 def extract_video_id(youtube_url: str) -> str:
     """Extract video ID from YouTube URL"""
