@@ -11,9 +11,7 @@ export default async function Home() {
               VideoMind AI 
             </h1>
             <p className="mt-4 text-lg text-zinc-400">
-              Analyze YouTube videos with AI. Simply paste a YouTube link below
-              to extract insights, transcripts, and visual analysis from any
-              video content.
+              Analyze YouTube videos with AI. Paste a YouTube link to analyze the video and get insights and ask questions about the video.
             </p>
           </div>
         </div>
