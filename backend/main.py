@@ -1,11 +1,3 @@
-'''
-This is the python backend using FAST API to process youtube watch URLs with the help of Gemini AI
-
-Contributors:
-Jeesmon C - @Xr-Mob
-
-Updated on: 21 June 2025
-'''
 import asyncio
 import re
 from pydantic import BaseModel
@@ -18,6 +10,7 @@ from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional
+import re
 
 # Load environment variables
 load_dotenv()
@@ -79,6 +72,10 @@ class VideoAnalysisResponse(BaseModel):
     video_summary: str
     summary_timestamps: List[SummaryTimestamp]
     has_transcript: bool
+
+class QuestionRequest(BaseModel):
+    video_url: str
+    question: str
 
 def extract_video_id(youtube_url: str) -> str:
     """Extract video ID from YouTube URL"""
@@ -512,8 +509,155 @@ async def read_root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    api_key_configured = bool(os.getenv("GEMINI_API_KEY"))
+    api_key = bool(os.getenv("GEMINI_API_KEY"))
     return {
         "status": "healthy",
-        "api_key_configured": api_key_configured
+        "api_key_configured": api_key
     }
+
+def format_time(seconds: float) -> str:
+    """Format seconds to MM:SS format"""
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{minutes:02}:{secs:02}"
+
+def generate_timestamp_link(video_url: str, timestamp_str: str) -> str:
+    """Generate YouTube timestamp link"""
+    try:
+        minutes, seconds = map(int, timestamp_str.split(":"))
+        total_seconds = minutes * 60 + seconds
+        return f"{video_url}&t={total_seconds}s"
+    except Exception as e:
+        print("Error creating timestamp link:", e)
+        return video_url
+
+def hyperlink_timestamps_in_text(answer: str, video_url: str) -> str:
+    """Convert timestamps in text to hyperlinks"""
+    pattern = r"\b(\d{2}):(\d{2})\b"
+    
+    def replacer(match):
+        ts = match.group(0)
+        link = generate_timestamp_link(video_url, ts)
+        return f'[{ts}]({link})'
+    
+    return re.sub(pattern, replacer, answer)
+
+async def answer_question_with_timestamps(
+    transcript: list[dict],
+    question: str,
+    video_url: str
+) -> str:
+    """Answer questions about video with timestamps"""
+    if not transcript:
+        return "Sorry, this video has no transcript available."
+    
+    # Format transcript with timestamps
+    def format_chunk(items):
+        return "\n".join(f"[{format_time(i['start'])}] {i['text']}" for i in items)
+    
+    def chunk_transcript(transcript, max_chars=5000):
+        chunks, current_chunk, current_len = [], [], 0
+        for item in transcript:
+            line = f"[{format_time(item['start'])}] {item['text']}\n"
+            if current_len + len(line) > max_chars:
+                chunks.append(current_chunk)
+                current_chunk, current_len = [], 0
+            current_chunk.append(item)
+            current_len += len(line)
+        if current_chunk:
+            chunks.append(current_chunk)
+        return chunks
+    
+    chunks = chunk_transcript(transcript)
+    print(f"Q&A split into {len(chunks)} chunk(s)")
+    
+    best_answer = ""
+    most_timestamps = 0
+    
+    for i, chunk in enumerate(chunks):
+        chunk_text = format_chunk(chunk)
+        prompt = f"""
+        You are a helpful assistant answering questions about a YouTube video.
+        Use only the transcript below. Include timestamps in MM:SS format when relevant.
+        Be concise but comprehensive in your answer.
+        
+        Transcript:
+        {chunk_text}
+        
+        Question: {question}
+        Answer:
+        """
+        
+        try:
+            response = await asyncio.to_thread(
+                model.generate_content, prompt
+            )
+            answer = response.text.strip()
+            timestamp_count = len(re.findall(r"\b\d{2}:\d{2}\b", answer))
+            
+            if timestamp_count > most_timestamps:
+                best_answer = answer
+                most_timestamps = timestamp_count
+        except Exception as e:
+            print(f"Error answering chunk {i}: {e}")
+    
+    # Convert timestamps to hyperlinks
+    final_answer = hyperlink_timestamps_in_text(
+        best_answer or "Sorry, I couldn't find a relevant answer in the video.",
+        video_url
+    )
+    
+    return final_answer
+
+@app.post("/ask_question")
+async def ask_question(request_data: QuestionRequest):
+    """Answer questions about the video with timestamps"""
+    video_url = request_data.video_url
+    question = request_data.question
+    
+    # Basic URL validation
+    if not video_url.startswith("http") or ("youtube.com" not in video_url and "youtu.be" not in video_url):
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL format provided.")
+    
+    if not question or not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    
+    try:
+        # Extract video ID
+        video_id = extract_video_id(video_url)
+        print(f"Extracted video ID: {video_id}")
+        
+        # Get transcript with timestamps
+        print(f"Fetching transcript for Q&A: {video_id}")
+        transcript = await get_video_transcript_with_timestamps(video_id)
+        
+        if not transcript:
+            return {
+                "success": True,
+                "answer": "Sorry, this video has no transcript available. I cannot answer questions without captions.",
+                "has_timestamps": False
+            }
+        
+        # Answer the question
+        print(f"Answering question: {question}")
+        answer = await answer_question_with_timestamps(transcript, question, video_url)
+        
+        # Check if answer contains timestamps
+        has_timestamps = bool(re.search(r"\b\d{2}:\d{2}\b", answer))
+        
+        return {
+            "success": True,
+            "answer": answer,
+            "has_timestamps": has_timestamps,
+            "video_url": video_url,
+            "question": question
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error during question answering: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to answer question: {str(e)}"
+        )
