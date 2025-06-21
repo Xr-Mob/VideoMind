@@ -20,7 +20,7 @@ export default async function Home() {
         <div className="mt-16">
           <div className="overflow-hidden rounded-2xl bg-white/[0.05] shadow-xl ring-1 ring-white/[0.1]">
             <div className="p-8">
-              <YouTubeAnalyzer />
+              <YouTubeAnalyzer/>
             </div>
           </div>
         </div>
