@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useImperativeHandle, forwardRef } from "react";
+import { useRef, useImperativeHandle, forwardRef, useEffect } from "react";
 
 interface VideoDisplayProps {
   videoUrl: string;
   isVisible: boolean;
   onTimestampClick?: (seconds: number) => void;
+  onReady?: () => void;
 }
 
 export interface VideoDisplayRef {
@@ -13,8 +14,22 @@ export interface VideoDisplayRef {
 }
 
 export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
-  ({ videoUrl, isVisible, onTimestampClick }, ref) => {
+  ({ videoUrl, isVisible, onTimestampClick, onReady }, ref) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
+
+    // Debug ref initialization
+    useEffect(() => {
+      console.log(`VideoDisplay: Component mounted/updated. isVisible: ${isVisible}, videoUrl: ${videoUrl}`);
+      if (iframeRef.current) {
+        console.log(`VideoDisplay: iframe ref is available`);
+        // Notify parent that we're ready
+        if (onReady) {
+          onReady();
+        }
+      } else {
+        console.log(`VideoDisplay: iframe ref is not available yet`);
+      }
+    }, [isVisible, videoUrl, onReady]);
 
     const extractVideoId = (url: string): string | null => {
       const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -23,18 +38,31 @@ export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
     };
 
     const navigateToTime = (seconds: number) => {
-      if (iframeRef.current) {
-        const videoId = extractVideoId(videoUrl);
-        if (videoId) {
-          // Update the iframe src with the new timestamp
-          const newUrl = `https://www.youtube.com/embed/${videoId}?start=${seconds}&autoplay=1&rel=0&modestbranding=1`;
-          iframeRef.current.src = newUrl;
+      try {
+        if (iframeRef.current) {
+          const videoId = extractVideoId(videoUrl);
+          if (videoId) {
+            // Update the iframe src with the new timestamp
+            const newUrl = `https://www.youtube.com/embed/${videoId}?start=${seconds}&autoplay=1&rel=0&modestbranding=1`;
+            iframeRef.current.src = newUrl;
+            console.log(`VideoDisplay: Updated iframe src to navigate to ${seconds} seconds`);
+          } else {
+            console.warn(`VideoDisplay: Could not extract video ID from URL: ${videoUrl}`);
+          }
+        } else {
+          console.warn(`VideoDisplay: iframe ref is not available`);
         }
+      } catch (error) {
+        console.error(`VideoDisplay: Error in navigateToTime:`, error);
       }
       
       // Also call the parent callback if provided
       if (onTimestampClick) {
-        onTimestampClick(seconds);
+        try {
+          onTimestampClick(seconds);
+        } catch (error) {
+          console.error(`VideoDisplay: Error calling parent onTimestampClick:`, error);
+        }
       }
     };
 
@@ -48,7 +76,13 @@ export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
       ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
       : "";
 
-    if (!isVisible || !videoId) return null;
+    // Only render if visible and we have a valid video ID
+    if (!isVisible || !videoId) {
+      console.log(`VideoDisplay: Not rendering. isVisible: ${isVisible}, videoId: ${videoId}`);
+      return null;
+    }
+
+    console.log(`VideoDisplay: Rendering with videoId: ${videoId}`);
 
     return (
       <div className="bg-white/[0.03] rounded-lg border border-white/[0.1] p-6">

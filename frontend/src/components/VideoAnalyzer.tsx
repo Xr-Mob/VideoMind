@@ -5,6 +5,13 @@ import { Chatbot } from "./Chatbot";
 import { VideoTimestamps } from "./VideoTimestamps";
 import { VideoDisplay, VideoDisplayRef } from "./VideoDisplay";
 
+interface SummaryTimestamp {
+  time: string;
+  description: string;
+  seconds: number;
+  text_position: number;
+}
+
 export function YouTubeAnalyzer() {
   const [videoUrl, setVideoUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -13,7 +20,9 @@ export function YouTubeAnalyzer() {
   const [showVideoDisplay, setShowVideoDisplay] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [summary, setSummary] = useState("");
+  const [summaryTimestamps, setSummaryTimestamps] = useState<SummaryTimestamp[]>([]);
   const [error, setError] = useState("");
+  const [videoDisplayReady, setVideoDisplayReady] = useState(false);
   
   const videoDisplayRef = useRef<VideoDisplayRef>(null);
 
@@ -23,11 +32,34 @@ export function YouTubeAnalyzer() {
   };
 
   const handleTimestampClick = (seconds: number) => {
+    console.log(`Timestamp click: ${seconds} seconds, videoDisplayReady: ${videoDisplayReady}`);
+    
     // Navigate the video to the specified timestamp
-    if (videoDisplayRef.current) {
-      videoDisplayRef.current.navigateToTime(seconds);
+    if (videoDisplayRef.current && videoDisplayReady) {
+      try {
+        videoDisplayRef.current.navigateToTime(seconds);
+        console.log(`Successfully navigated to ${seconds} seconds`);
+      } catch (error) {
+        console.error(`Error navigating to ${seconds} seconds:`, error);
+      }
+    } else {
+      console.warn(`VideoDisplay not ready. videoDisplayRef.current: ${!!videoDisplayRef.current}, videoDisplayReady: ${videoDisplayReady}`);
+      // Try to set the video display as ready and retry
+      if (videoDisplayRef.current) {
+        setVideoDisplayReady(true);
+        // Retry after a short delay
+        setTimeout(() => {
+          if (videoDisplayRef.current) {
+            try {
+              videoDisplayRef.current.navigateToTime(seconds);
+              console.log(`Retry successful: navigated to ${seconds} seconds`);
+            } catch (error) {
+              console.error(`Retry failed: Error navigating to ${seconds} seconds:`, error);
+            }
+          }
+        }, 100);
+      }
     }
-    console.log(`Navigating to ${seconds} seconds`);
   };
 
   const handleAnalyze = async () => {
@@ -37,13 +69,15 @@ export function YouTubeAnalyzer() {
     setIsAnalyzing(true);
     setError("");
     setSummary("");
+    setSummaryTimestamps([]);
     setShowChatbot(false);
     setShowTimestamps(false);
     setShowVideoDisplay(false);
     setAnalysisComplete(false);
+    setVideoDisplayReady(false);
 
     try {
-      const response = await fetch("http://localhost:8000/analyze_video", {
+      const response = await fetch("http://localhost:8001/analyze_video", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -59,6 +93,7 @@ export function YouTubeAnalyzer() {
 
       if (data.success && data.video_summary) {
         setSummary(data.video_summary);
+        setSummaryTimestamps(data.summary_timestamps || []);
         setAnalysisComplete(true);
         setShowChatbot(true);
         setShowTimestamps(true);
@@ -86,48 +121,158 @@ export function YouTubeAnalyzer() {
     */
   };
 
+  const formatSummaryWithClickableTimestamps = (text: string, timestamps: SummaryTimestamp[]) => {
+    if (timestamps.length === 0) {
+      return formatSummary(text);
+    }
+
+    // Sort timestamps by position in descending order to replace from end to start
+    const sortedTimestamps = [...timestamps].sort((a, b) => b.text_position - a.text_position);
+    
+    let processedText = text;
+    
+    // Replace each timestamp with a placeholder
+    sortedTimestamps.forEach((timestamp, index) => {
+      // Pattern to match timestamps at the end of summary points: "description. [1:30]"
+      const timePattern = new RegExp(`(\\s*\\[${timestamp.time.replace(/:/g, '\\:')}\\]\\s*)`, 'g');
+      
+      processedText = processedText.replace(timePattern, (match) => {
+        return `__TIMESTAMP_${index}__`;
+      });
+    });
+
+    // Split the text and create React elements
+    const parts = processedText.split(/(__TIMESTAMP_\d+__)/);
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          const timestampMatch = part.match(/__TIMESTAMP_(\d+)__/);
+          if (timestampMatch) {
+            const timestampIndex = parseInt(timestampMatch[1]);
+            const timestamp = sortedTimestamps[timestampIndex];
+            
+            return (
+              <span
+                key={`timestamp-${timestampIndex}-${index}`}
+                onClick={() => handleTimestampClick(timestamp.seconds)}
+                className="text-blue-400 hover:text-blue-300 font-mono font-medium transition-colors cursor-pointer underline ml-1"
+                title={`Jump to ${timestamp.time} - ${timestamp.description}`}
+              >
+                [{timestamp.time}]
+              </span>
+            );
+          }
+          
+          // Process regular text with formatting
+          return formatSummaryText(part, `text-${index}`);
+        })}
+      </>
+    );
+  };
+
+  const formatSummaryText = (text: string, key: string) => {
+    // Split the text into sections
+    const sections = text.split(/\*\*([^*]+):\*\*/g);
+    
+    return (
+      <>
+        {sections.map((section, index) => {
+          // Skip empty sections
+          if (!section.trim()) return null;
+          
+          // Check if this is a header (odd indices after split)
+          if (index % 2 === 1) {
+            return (
+              <h3 key={`${key}-header-${index}`} className="text-lg font-semibold text-white mt-4 mb-2">
+                {section}
+              </h3>
+            );
+          }
+          
+          // Process content sections
+          const lines = section.split('\n').filter(line => line.trim());
+          
+          return (
+            <div key={`${key}-section-${index}`}>
+              {lines.map((line, lineIndex) => {
+                // Check if it's a bullet point
+                if (line.trim().startsWith('•')) {
+                  return (
+                    <div key={`${key}-${index}-${lineIndex}`} className="text-zinc-300 ml-4 mb-1">
+                      {line.trim()}
+                    </div>
+                  );
+                }
+                
+                // Regular paragraph
+                if (line.trim()) {
+                  return (
+                    <p key={`${key}-${index}-${lineIndex}`} className="text-zinc-300 mb-2">
+                      {line.trim()}
+                    </p>
+                  );
+                }
+                
+                return null;
+              })}
+            </div>
+          );
+        }).filter(Boolean)}
+      </>
+    );
+  };
+
   const formatSummary = (text: string) => {
     // Split the text into sections
     const sections = text.split(/\*\*([^*]+):\*\*/g);
     
-    return sections.map((section, index) => {
-      // Skip empty sections
-      if (!section.trim()) return null;
-      
-      // Check if this is a header (odd indices after split)
-      if (index % 2 === 1) {
-        return (
-          <h3 key={index} className="text-lg font-semibold text-white mt-4 mb-2">
-            {section}
-          </h3>
-        );
-      }
-      
-      // Process content sections
-      const lines = section.split('\n').filter(line => line.trim());
-      
-      return lines.map((line, lineIndex) => {
-        // Check if it's a bullet point
-        if (line.trim().startsWith('•')) {
+    return (
+      <>
+        {sections.map((section, index) => {
+          // Skip empty sections
+          if (!section.trim()) return null;
+          
+          // Check if this is a header (odd indices after split)
+          if (index % 2 === 1) {
+            return (
+              <h3 key={`summary-header-${index}`} className="text-lg font-semibold text-white mt-4 mb-2">
+                {section}
+              </h3>
+            );
+          }
+          
+          // Process content sections
+          const lines = section.split('\n').filter(line => line.trim());
+          
           return (
-            <li key={`${index}-${lineIndex}`} className="text-zinc-300 ml-4 mb-1 list-none">
-              {line.trim()}
-            </li>
+            <div key={`summary-section-${index}`}>
+              {lines.map((line, lineIndex) => {
+                // Check if it's a bullet point
+                if (line.trim().startsWith('•')) {
+                  return (
+                    <div key={`summary-${index}-${lineIndex}`} className="text-zinc-300 ml-4 mb-1">
+                      {line.trim()}
+                    </div>
+                  );
+                }
+                
+                // Regular paragraph
+                if (line.trim()) {
+                  return (
+                    <p key={`summary-${index}-${lineIndex}`} className="text-zinc-300 mb-2">
+                      {line.trim()}
+                    </p>
+                  );
+                }
+                
+                return null;
+              })}
+            </div>
           );
-        }
-        
-        // Regular paragraph
-        if (line.trim()) {
-          return (
-            <p key={`${index}-${lineIndex}`} className="text-zinc-300 mb-2">
-              {line.trim()}
-            </p>
-          );
-        }
-        
-        return null;
-      });
-    }).filter(Boolean);
+        }).filter(Boolean)}
+      </>
+    );
   };
 
   return (
@@ -195,7 +340,20 @@ export function YouTubeAnalyzer() {
         </div>
       )}
 
-      {/* Summary Display */}
+      {/* Video Display Section */}
+      {(showVideoDisplay || showTimestamps) && analysisComplete && (
+        <div className="mt-8">
+          <VideoDisplay 
+            ref={videoDisplayRef}
+            videoUrl={videoUrl} 
+            isVisible={showVideoDisplay}
+            onTimestampClick={handleTimestampClick}
+            onReady={() => setVideoDisplayReady(true)}
+          />
+        </div>
+      )}
+
+      {/* Summary Display - Now under the video player with clickable timestamps */}
       {summary && !isAnalyzing && (
         <div className="space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between">
@@ -203,6 +361,7 @@ export function YouTubeAnalyzer() {
             <button
               onClick={() => {
                 setSummary("");
+                setSummaryTimestamps([]);
                 setVideoUrl("");
                 setShowChatbot(false);
                 setShowTimestamps(false);
@@ -217,21 +376,15 @@ export function YouTubeAnalyzer() {
           
           <div className="p-6 bg-white/[0.05] border border-white/[0.1] rounded-lg backdrop-blur-sm">
             <div className="prose prose-invert max-w-none">
-              {formatSummary(summary)}
+              {formatSummaryWithClickableTimestamps(summary, summaryTimestamps)}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Video Display Section */}
-      {showVideoDisplay && analysisComplete && (
-        <div className="mt-8">
-          <VideoDisplay 
-            ref={videoDisplayRef}
-            videoUrl={videoUrl} 
-            isVisible={showVideoDisplay}
-            onTimestampClick={handleTimestampClick}
-          />
+          
+          {summaryTimestamps.length > 0 && (
+            <div className="text-xs text-zinc-500 text-center">
+              💡 Click on any timestamp in the summary to jump to that moment in the video
+            </div>
+          )}
         </div>
       )}
 

@@ -7,6 +7,7 @@ Jeesmon C - @Xr-Mob
 Updated on: 21 June 2025
 '''
 import asyncio
+import re
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +66,20 @@ class ChatResponse(BaseModel):
     success: bool
     response: str
 
+class SummaryTimestamp(BaseModel):
+    time: str
+    description: str
+    seconds: int
+    text_position: int  # Position in the summary text
+
+class VideoAnalysisResponse(BaseModel):
+    success: bool
+    video_url: str
+    video_id: str
+    video_summary: str
+    summary_timestamps: List[SummaryTimestamp]
+    has_transcript: bool
+
 def extract_video_id(youtube_url: str) -> str:
     """Extract video ID from YouTube URL"""
     # Handle different YouTube URL formats
@@ -100,11 +115,65 @@ async def get_video_transcript(video_id: str) -> Optional[str]:
         # Return None if no transcript available
         return None
 
-async def generate_video_summary(transcript: Optional[str], video_url: str) -> str:
-    """Generate summary using Gemini"""
+def time_to_seconds(time_str: str) -> int:
+    """Convert time string (MM:SS or HH:MM:SS) to seconds"""
+    parts = time_str.split(':')
+    if len(parts) == 2:
+        # MM:SS format
+        minutes, seconds = map(int, parts)
+        return minutes * 60 + seconds
+    elif len(parts) == 3:
+        # HH:MM:SS format
+        hours, minutes, seconds = map(int, parts)
+        return hours * 3600 + minutes * 60 + seconds
+    else:
+        return 0
+
+def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
+    """Extract timestamps from summary text and create SummaryTimestamp objects"""
+    timestamps = []
+    
+    # Pattern to match timestamps at the end of summary points in square brackets
+    # Matches patterns like "description here. [1:30]", "bullet point. [2:15]", etc.
+    patterns = [
+        r'([^[]+?)\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]',  # "description. [1:30]" or "description. [1:30:45]"
+        r'•\s*([^[]+?)\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]',  # "• bullet point. [1:30]"
+    ]
+    
+    for pattern in patterns:
+        matches = re.finditer(pattern, summary, re.IGNORECASE | re.MULTILINE)
+        for match in matches:
+            description = match.group(1).strip()
+            time_str = match.group(2)
+            start_pos = match.start()
+            
+            # Clean up description
+            description = re.sub(r'\s+', ' ', description)
+            if len(description) > 80:
+                description = description[:77] + "..."
+            
+            timestamps.append(SummaryTimestamp(
+                time=time_str,
+                description=description,
+                seconds=time_to_seconds(time_str),
+                text_position=start_pos
+            ))
+    
+    # Remove duplicates and sort by position
+    unique_timestamps = []
+    seen_positions = set()
+    for ts in timestamps:
+        if ts.text_position not in seen_positions:
+            unique_timestamps.append(ts)
+            seen_positions.add(ts.text_position)
+    
+    return sorted(unique_timestamps, key=lambda x: x.text_position)
+
+async def generate_video_summary_with_timestamps(transcript: Optional[str], video_url: str) -> tuple[str, List[SummaryTimestamp]]:
+    """Generate summary using Gemini with timestamps included"""
     if not transcript:
         # If no transcript, provide a message
-        return "Unable to generate summary: No transcript available for this video. The video might not have captions enabled."
+        return "Unable to generate summary: No transcript available for this video. The video might not have captions enabled.", []
     
     # Limit transcript length to avoid token limits
     max_chars = 15000
@@ -114,22 +183,32 @@ async def generate_video_summary(transcript: Optional[str], video_url: str) -> s
     prompt = f"""
     Please provide a comprehensive summary of this YouTube video based on its transcript.
     
-    Structure your response as follows:
+    IMPORTANT: For each summary point, add the timestamp at the END of that point, not within the text.
+    Use this exact format for each summary point:
     
     **Overview:**
-    A brief 2-3 sentence overview of what the video is about.
+    A brief 2-3 sentence overview of what the video is about. [0:00]
     
     **Key Topics:**
-    • Main topic 1
-    • Main topic 2
-    • Main topic 3
-    (Include 3-5 key topics)
+    • Main topic 1 description here. [1:30]
+    • Main topic 2 description here. [2:15]
+    • Main topic 3 description here. [4:20]
+    (Include 3-5 key topics with timestamps at the end of each bullet point)
     
     **Main Takeaways:**
-    The most important conclusions or lessons from the video.
+    The most important conclusions or lessons from the video. [3:45]
+    Additional key insights worth mentioning. [6:20]
     
     **Notable Details:**
-    Any important facts, recommendations, or specific details worth mentioning.
+    Any important facts, recommendations, or specific details worth mentioning. [1:30]
+    Additional practical examples or demonstrations. [4:15]
+    
+    Rules:
+    - Put timestamps in square brackets at the END of each summary point
+    - Use MM:SS format (e.g., [1:30], [4:20])
+    - Do NOT put timestamps in the middle of sentences
+    - Each bullet point or paragraph should end with its relevant timestamp
+    - Keep the summary flowing naturally without timestamp interruptions
     
     Video URL: {video_url}
     
@@ -140,7 +219,12 @@ async def generate_video_summary(transcript: Optional[str], video_url: str) -> s
         response = await asyncio.to_thread(
             model.generate_content, prompt
         )
-        return response.text
+        summary = response.text
+        
+        # Extract timestamps from the generated summary
+        timestamps = extract_timestamps_from_summary(summary)
+        
+        return summary, timestamps
     except Exception as e:
         print(f"Error generating summary: {e}")
         raise
@@ -193,14 +277,26 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
     2. A brief description of what happens at that moment
     3. The time in seconds for navigation
     
-    Format your response as a JSON array like this:
+    IMPORTANT: Return ONLY a valid JSON array with this exact format:
     [
         {{"time": "00:00", "description": "Introduction", "seconds": 0}},
-        {{"time": "01:30", "description": "Main topic begins", "seconds": 90}}
+        {{"time": "01:30", "description": "Main topic begins", "seconds": 90}},
+        {{"time": "03:45", "description": "Key concept explanation", "seconds": 225}},
+        {{"time": "05:20", "description": "Practical example", "seconds": 320}},
+        {{"time": "07:10", "description": "Conclusion", "seconds": 430}}
     ]
+    
+    Rules:
+    - Use MM:SS format for time (e.g., "01:30", "05:45")
+    - Convert time to seconds (e.g., 1:30 = 90 seconds)
+    - Keep descriptions concise but informative
+    - Cover the entire video duration
+    - Focus on key moments, transitions, and important content
     
     Video URL: {video_url}
     Transcript: {transcript}
+    
+    Return only the JSON array, no additional text or explanation.
     """
     
     try:
@@ -208,21 +304,94 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
             model.generate_content, prompt
         )
         
-        # Parse the response to extract timestamps
-        # For now, return mock timestamps as fallback
-        # TODO: Implement proper JSON parsing of Gemini response
+        # Extract JSON from the response
+        response_text = response.text.strip()
         
-        return [
-            Timestamp(time="00:00", description="Introduction to the video", seconds=0),
-            Timestamp(time="00:15", description="Main topic discussion begins", seconds=15),
-            Timestamp(time="01:30", description="Key concept explanation", seconds=90),
-            Timestamp(time="03:45", description="Practical example demonstration", seconds=225),
-            Timestamp(time="05:20", description="Important insights shared", seconds=320),
-            Timestamp(time="07:10", description="Conclusion and summary", seconds=430)
-        ]
+        # Try to find JSON array in the response
+        import json
+        
+        # Look for JSON array pattern
+        json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+            try:
+                timestamps_data = json.loads(json_str)
+                
+                # Validate and convert to Timestamp objects
+                timestamps = []
+                for item in timestamps_data:
+                    if isinstance(item, dict) and 'time' in item and 'description' in item and 'seconds' in item:
+                        timestamps.append(Timestamp(
+                            time=item['time'],
+                            description=item['description'],
+                            seconds=item['seconds']
+                        ))
+                
+                # Sort by seconds to ensure chronological order
+                timestamps.sort(key=lambda x: x.seconds)
+                
+                print(f"Generated {len(timestamps)} timestamps from Gemini response")
+                return timestamps
+                
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse JSON from Gemini response: {e}")
+                print(f"Response text: {response_text}")
+        
+        # Fallback: try to extract timestamps using regex if JSON parsing fails
+        print("JSON parsing failed, attempting regex extraction...")
+        return extract_timestamps_from_text(response_text)
+        
     except Exception as e:
         print(f"Error generating timestamps: {e}")
+        print(f"Response text: {response.text if hasattr(response, 'text') else 'No response text'}")
         return []
+
+def extract_timestamps_from_text(text: str) -> List[Timestamp]:
+    """Extract timestamps from text using regex patterns as fallback"""
+    timestamps = []
+    
+    # Pattern to match timestamp entries in various formats
+    patterns = [
+        # Pattern for "time": "MM:SS", "description": "...", "seconds": N
+        r'"time":\s*"(\d{1,2}:\d{2})",\s*"description":\s*"([^"]+)",\s*"seconds":\s*(\d+)',
+        # Pattern for time: "MM:SS", description: "...", seconds: N
+        r'time:\s*"(\d{1,2}:\d{2})",\s*description:\s*"([^"]+)",\s*seconds:\s*(\d+)',
+        # Pattern for MM:SS - description (seconds: N)
+        r'(\d{1,2}:\d{2})\s*-\s*([^"]+)\s*\(seconds:\s*(\d+)\)',
+        # Pattern for MM:SS: description
+        r'(\d{1,2}:\d{2}):\s*([^\n]+)',
+    ]
+    
+    for pattern in patterns:
+        matches = re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE)
+        for match in matches:
+            time_str = match.group(1)
+            description = match.group(2).strip()
+            seconds = int(match.group(3)) if len(match.groups()) > 2 else time_to_seconds(time_str)
+            
+            # Clean up description
+            description = re.sub(r'\s+', ' ', description)
+            if len(description) > 100:
+                description = description[:97] + "..."
+            
+            timestamps.append(Timestamp(
+                time=time_str,
+                description=description,
+                seconds=seconds
+            ))
+    
+    # Remove duplicates and sort by seconds
+    unique_timestamps = []
+    seen_times = set()
+    for ts in timestamps:
+        if ts.time not in seen_times:
+            unique_timestamps.append(ts)
+            seen_times.add(ts.time)
+    
+    unique_timestamps.sort(key=lambda x: x.seconds)
+    
+    print(f"Extracted {len(unique_timestamps)} timestamps using regex fallback")
+    return unique_timestamps
 
 @app.post("/analyze_video")
 async def analyze_youtube_video(request_data: UrlAnalyzeRequest):
@@ -244,21 +413,23 @@ async def analyze_youtube_video(request_data: UrlAnalyzeRequest):
         if not transcript:
             print("No transcript available for this video")
         
-        # Generate summary
-        print("Generating summary with Gemini...")
-        summary = await generate_video_summary(transcript, youtube_url)
+        # Generate summary with timestamps
+        print("Generating summary with timestamps using Gemini...")
+        summary, summary_timestamps = await generate_video_summary_with_timestamps(transcript, youtube_url)
         
         print("\n--- Gemini AI Response ---")
         print(summary)
+        print(f"Extracted {len(summary_timestamps)} timestamps from summary")
         print("--------------------------")
         
-        return {
-            "success": True,
-            "video_url": youtube_url,
-            "video_id": video_id,
-            "video_summary": summary,
-            "has_transcript": bool(transcript)
-        }
+        return VideoAnalysisResponse(
+            success=True,
+            video_url=youtube_url,
+            video_id=video_id,
+            video_summary=summary,
+            summary_timestamps=summary_timestamps,
+            has_transcript=bool(transcript)
+        )
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -31,7 +31,7 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/timestamps", {
+      const response = await fetch("http://localhost:8001/timestamps", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -54,47 +54,10 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
     } catch (err: any) {
       setError(err.message || "Failed to load timestamps");
       console.error("Error fetching timestamps:", err);
-      
-      // Fallback to mock data if backend fails
-      setTimestamps(getMockTimestamps());
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Mock data fallback - comment out when backend is fully implemented
-  const getMockTimestamps = (): Timestamp[] => [
-    {
-      time: "00:00",
-      description: "Introduction to the video",
-      seconds: 0
-    },
-    {
-      time: "00:15",
-      description: "Main topic discussion begins",
-      seconds: 15
-    },
-    {
-      time: "01:30",
-      description: "Key concept explanation",
-      seconds: 90
-    },
-    {
-      time: "03:45",
-      description: "Practical example demonstration",
-      seconds: 225
-    },
-    {
-      time: "05:20",
-      description: "Important insights shared",
-      seconds: 320
-    },
-    {
-      time: "07:10",
-      description: "Conclusion and summary",
-      seconds: 430
-    }
-  ];
 
   const formatTime = (timeString: string) => {
     // Ensure consistent formatting for display

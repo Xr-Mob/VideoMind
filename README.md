@@ -6,6 +6,8 @@ A web application that analyzes YouTube videos and allows users to ask questions
 
 - **YouTube Video Analysis**: Paste a YouTube URL to analyze video content
 - **AI Chatbot**: Ask natural language questions about the analyzed video
+- **Video Timestamps**: Navigate through key moments in the video
+- **Video Player**: Embedded YouTube player with timestamp navigation
 - **Modern UI**: Beautiful, responsive interface built with Next.js and Tailwind CSS
 - **FastAPI Backend**: Scalable backend for video processing and AI interactions
 
@@ -16,134 +18,153 @@ VideoMind-AI/
 ├── frontend/                 # Next.js frontend application
 │   ├── src/
 │   │   ├── app/             # Next.js app router
-│   │   │   ├── api/         # API routes for backend communication
-│   │   │   └── ...
 │   │   └── components/      # React components
 │   │       ├── VideoAnalyzer.tsx
+│   │       ├── VideoDisplay.tsx
+│   │       ├── VideoTimestamps.tsx
 │   │       └── Chatbot.tsx
 │   └── ...
 ├── backend/                  # FastAPI backend application
 │   ├── main.py              # Main FastAPI application
-│   └── requirements.txt     # Python dependencies
+│   ├── requirements.txt     # Python dependencies
+│   ├── setup.bat           # Windows setup script
+│   ├── setup.sh            # Unix/Linux setup script
+│   └── README.md           # Backend documentation
 └── README.md
 ```
 
-## Setup Instructions
+## Quick Start
+
+### Backend Setup
+
+1. **Navigate to backend directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Run setup script:**
+   - **Windows:** Double-click `setup.bat` or run:
+     ```bash
+     setup.bat
+     ```
+   - **Unix/Linux:** Run:
+     ```bash
+     chmod +x setup.sh
+     ./setup.sh
+     ```
+
+3. **Create environment file:**
+   Create a `.env` file in the backend directory:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+   
+   Get your Gemini API key from: https://makersuite.google.com/app/apikey
+
+4. **Start the backend:**
+   ```bash
+   # Activate virtual environment first
+   venv\Scripts\activate.bat  # Windows
+   source venv/bin/activate   # Unix/Linux
+   
+   # Start the server
+   python main.py
+   ```
+
+The backend will be available at `http://localhost:8000`
 
 ### Frontend Setup
 
-1. Navigate to the frontend directory:
+1. **Navigate to frontend directory:**
    ```bash
    cd frontend
    ```
 
-2. Install dependencies:
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. Create a `.env.local` file in the frontend directory:
-   ```env
-   FASTAPI_BASE_URL=http://localhost:8000
-   ```
-
-4. Start the development server:
+3. **Start the development server:**
    ```bash
    npm run dev
    ```
 
 The frontend will be available at `http://localhost:3000`
 
-### Backend Setup
-
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Create a virtual environment (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Start the FastAPI server:
-   ```bash
-   python main.py
-   ```
-
-The backend will be available at `http://localhost:8000`
-
 ## API Endpoints
 
 ### Backend Endpoints
 
-- `POST /analyze` - Analyze a YouTube video
-  - Request: `{"video_url": "https://www.youtube.com/watch?v=..."}`
-  - Response: `{"success": true, "message": "...", "video_id": "...", "title": "...", "duration": "..."}`
-
-- `POST /chat` - Chat with video content
-  - Request: `{"video_url": "...", "query": "What is this video about?"}`
-  - Response: `{"response": "...", "success": true}`
-
+- `POST /analyze_video` - Analyze a YouTube video and generate summary
+- `POST /chat` - Process chat queries about a video
+- `POST /timestamps` - Generate navigable timestamps for a video
 - `GET /health` - Health check endpoint
 
-### Frontend API Routes
+### Frontend Components
 
-- `POST /api/analyze` - Proxies to backend `/analyze` endpoint
-- `POST /api/chat` - Proxies to backend `/chat` endpoint
+- **VideoAnalyzer**: Handles YouTube URL input, validation, and analysis workflow
+- **VideoDisplay**: Embedded YouTube player with timestamp navigation
+- **VideoTimestamps**: Displays clickable timestamps for video navigation
+- **Chatbot**: AI-powered chat interface for video questions
 
 ## Usage
 
 1. Open the application in your browser at `http://localhost:3000`
 2. Paste a valid YouTube video URL in the input field
 3. Click "Analyze Video" to process the video
-4. Once analysis is complete, the chatbot will appear
-5. Ask questions about the video content using natural language
+4. View the generated summary, video player, and timestamps
+5. Ask questions about the video content using the chatbot
+6. Click timestamps to navigate to specific moments in the video
 
-## Implementation Notes
+## Technology Stack
 
-### Frontend Components
+### Frontend
+- **Next.js 14** - React framework with app router
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first CSS framework
+- **React Hooks** - State management and side effects
 
-- **VideoAnalyzer**: Handles YouTube URL input and validation, triggers video analysis
-- **Chatbot**: Manages chat interface, sends queries to backend, displays responses
-
-### Backend Implementation
-
-The current backend provides placeholder implementations. To make it fully functional, you'll need to:
-
-1. **Video Processing**: Implement actual video download and processing using libraries like `yt-dlp`
-2. **Audio Transcription**: Use Whisper or similar for speech-to-text conversion
-3. **AI Integration**: Connect to LLM services (OpenAI, Anthropic, etc.) for intelligent responses
-4. **Data Storage**: Implement database storage for processed video data
-5. **Caching**: Add Redis or similar for caching analysis results
-
-### Environment Variables
-
-- `FASTAPI_BASE_URL`: URL of the FastAPI backend (default: `http://localhost:8000`)
-
-## Development
-
-### Adding New Features
-
-1. **Frontend**: Add new components in `frontend/src/components/`
-2. **Backend**: Add new endpoints in `backend/main.py`
-3. **API Routes**: Create corresponding Next.js API routes in `frontend/src/app/api/`
-
-### Styling
-
-The application uses Tailwind CSS for styling. All components follow a dark theme with blue accents.
+### Backend
+- **FastAPI** - Modern Python web framework
+- **Google Gemini AI** - AI-powered video analysis and chat
+- **YouTube Transcript API** - Video transcript extraction
+- **Pydantic** - Data validation and serialization
+- **Uvicorn** - ASGI server
 
 ## Troubleshooting
 
-- **CORS Issues**: Ensure the backend CORS settings include your frontend URL
-- **API Connection**: Check that `FASTAPI_BASE_URL` is correctly set
-- **Port Conflicts**: Make sure ports 3000 (frontend) and 8000 (backend) are available
+### Common Issues
+
+1. **"uvicorn not recognized" error:**
+   - Make sure you've run the setup script and activated the virtual environment
+   - Try: `pip install uvicorn[standard]`
+
+2. **CORS errors:**
+   - Ensure the backend is running on `http://localhost:8000`
+   - Check that CORS is properly configured in the backend
+
+3. **API key errors:**
+   - Verify your Gemini API key is correctly set in the `.env` file
+   - Check that the API key is valid and has sufficient quota
+
+4. **Video analysis fails:**
+   - Ensure the YouTube video has captions/transcripts enabled
+   - Check that the video URL is valid and accessible
+
+### Development
+
+- **Backend logs**: Check the terminal where the backend is running
+- **Frontend logs**: Check the browser console (F12)
+- **Network issues**: Use browser dev tools to inspect API requests
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
