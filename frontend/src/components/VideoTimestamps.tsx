@@ -31,7 +31,7 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8001/timestamps", {
+      const response = await fetch("http://localhost:8000/timestamps", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -82,86 +82,104 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
   if (!isVisible) return null;
 
   return (
-    <div className="bg-white/[0.03] rounded-lg border border-white/[0.1] p-6 h-full flex flex-col">
-      <div className="mb-4 flex-shrink-0">
+    <div className="h-full overflow-hidden bg-white/[0.03] rounded-lg border border-white/[0.1] flex flex-col">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 p-6 pb-4">
         <h3 className="text-lg font-medium text-white mb-2">Video Timestamps</h3>
         <p className="text-sm text-zinc-400">
           Click on any timestamp to jump to that moment in the video
         </p>
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-8 flex-1">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-zinc-400">Loading timestamps...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && !isLoading && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-4 flex-shrink-0">
-          <p className="text-red-400 text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* Timestamps List - Scrollable */}
-      {!isLoading && timestamps.length > 0 && (
-        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-          {timestamps.map((timestamp, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-3 bg-white/[0.02] rounded-lg border border-white/[0.05] hover:bg-white/[0.05] transition-colors cursor-pointer"
-              onClick={() => handleTimestampClick(timestamp)}
-            >
-              <div className="flex items-center space-x-4 min-w-0 flex-1">
-                <button
-                  className="text-blue-400 hover:text-blue-300 font-mono text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded px-2 py-1 flex-shrink-0"
-                >
-                  {formatTime(timestamp.time)}
-                </button>
-                <span className="text-zinc-300 text-sm truncate">
-                  {timestamp.description}
-                </span>
-              </div>
-              
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                <span className="text-xs text-zinc-500">
-                  #{index + 1}
-                </span>
-                <svg 
-                  className="w-4 h-4 text-zinc-500" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" 
-                  />
-                </svg>
-              </div>
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-hidden px-6">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-zinc-400">Loading timestamps...</span>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Empty State */}
-      {!isLoading && timestamps.length === 0 && !error && (
-        <div className="text-center text-zinc-500 py-8 flex-1 flex items-center justify-center">
-          <p>No timestamps available for this video.</p>
-        </div>
-      )}
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
 
-      <div className="mt-4 pt-4 border-t border-white/[0.1] flex-shrink-0">
+        {/* Timestamps List - Scrollable */}
+        {!isLoading && timestamps.length > 0 && (
+          <div className="h-full overflow-y-auto pr-2 pb-4 custom-scrollbar">
+            <div className="space-y-3">
+              {timestamps.map((timestamp, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col p-3 bg-white/[0.02] rounded-lg border border-white/[0.05] hover:bg-white/[0.05] transition-colors cursor-pointer group"
+                  onClick={() => handleTimestampClick(timestamp)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-400 hover:text-blue-300 font-mono text-sm font-medium transition-colors">
+                      {formatTime(timestamp.time)}
+                    </span>
+                    
+                    <span className="text-xs text-zinc-500">
+                      #{index + 1}
+                    </span>
+                  </div>
+                  
+                  <div className="text-zinc-300 text-sm leading-relaxed break-words">
+                    {timestamp.description}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && timestamps.length === 0 && !error && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-center text-zinc-500">No timestamps available for this video.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Fixed Footer */}
+      <div className="flex-shrink-0 p-6 pt-4 border-t border-white/[0.1]">
         <p className="text-xs text-zinc-500 text-center">
-          {timestamps.length} timestamps available • Click to navigate within video
+          {timestamps.length} timestamps available
         </p>
       </div>
+
+      {/* Custom scrollbar styles */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(39, 39, 42, 0.3);
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(113, 113, 122, 0.5);
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(113, 113, 122, 0.7);
+        }
+        
+        /* Firefox */
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(113, 113, 122, 0.5) rgba(39, 39, 42, 0.3);
+        }
+      `}</style>
     </div>
   );
-} 
+}

@@ -83,7 +83,7 @@ export function YouTubeAnalyzer() {
     setShowChat(false);
 
     try {
-      const response = await fetch("http://localhost:8001/analyze_video", {
+      const response = await fetch("http://localhost:8000/analyze_video", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -124,7 +124,7 @@ export function YouTubeAnalyzer() {
     setChatLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8001/chat", {
+      const response = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -435,9 +435,9 @@ export function YouTubeAnalyzer() {
       {/* Video Display and Timestamps Section - Side by Side */}
       {(showVideoDisplay || showTimestamps) && analysisComplete && (
         <div className="mt-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start lg:h-[600px]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             {/* Video Player - Takes 2/3 of the width */}
-            <div className="lg:col-span-2 h-full">
+            <div className="lg:col-span-2 h-[400px] lg:h-[600px]">
               <VideoDisplay 
                 ref={videoDisplayRef}
                 videoUrl={videoUrl} 
@@ -446,8 +446,8 @@ export function YouTubeAnalyzer() {
               />
             </div>
             
-            {/* Video Timestamps - Takes 1/3 of the width */}
-            <div className="lg:col-span-1 h-full">
+            {/* Video Timestamps - Takes 1/3 of the width with fixed height */}
+            <div className="lg:col-span-1 h-[400px] lg:h-[600px]">
               <VideoTimestamps 
                 videoUrl={videoUrl} 
                 isVisible={showTimestamps}

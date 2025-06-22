@@ -5,12 +5,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 import os
-import re
 from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional
-import re
 
 # Load environment variables
 load_dotenv()
