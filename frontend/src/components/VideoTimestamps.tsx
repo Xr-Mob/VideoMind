@@ -31,7 +31,7 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/timestamps", {
+      const response = await fetch("http://localhost:8001/timestamps", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
