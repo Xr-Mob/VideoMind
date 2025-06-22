@@ -261,7 +261,7 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
         transcript = transcript[:max_chars] + "..."
     
     prompt = f"""
-    Based on the video transcript, create 5-8 key timestamps that highlight important moments in the video.
+    Based on the video transcript, create key timestamps that highlight important moments in the video.
     
     For each timestamp, provide:
     1. Time in MM:SS format
@@ -280,9 +280,14 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
     Rules:
     - Use MM:SS format for time (e.g., "01:30", "05:45")
     - Convert time to seconds (e.g., 1:30 = 90 seconds)
-    - Keep descriptions concise but informative
-    - Cover the entire video duration
-    - Focus on key moments, transitions, and important content
+    - Prioritize logical and thematic boundaries when splitting the transcript (e.g., new topic, question, or segment).
+    - Avoid over-segmenting long videos; prefer **fewer, more meaningful sections**.
+    - For a 10-minute video, return around **3–5** sections.
+    - For a 30-minute video, return around **6–10** sections.
+    - For a 1-hour video, return around **8–15** sections.
+    - For a 2-hour video, return around **10–18** sections.
+    - Typical section length should be **3–6 minutes**, but allow longer if the topic continues.
+    - **Do not create sections shorter than 1 minute**, unless there's a clear, standalone transition or shift.
     
     Video URL: {video_url}
     Transcript: {transcript}
