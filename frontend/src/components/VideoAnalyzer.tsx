@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function YouTubeAnalyzer() {
   const [videoUrl, setVideoUrl] = useState("");
@@ -13,6 +13,17 @@ export function YouTubeAnalyzer() {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
+
+  //Read videoUrl from URL parameters on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') { // Ensure window object is available (client-side)
+      const params = new URLSearchParams(window.location.search);
+      const urlFromParam = params.get('videoUrl');
+      if (urlFromParam) {
+        setVideoUrl(urlFromParam);
+      }
+    }
+  }, []); // Run only once on mount
 
   // NEW: Visual Search states
   const [visualSearchQuery, setVisualSearchQuery] = useState("");
