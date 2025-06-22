@@ -2,6 +2,12 @@
 
 A web application that analyzes YouTube videos and allows users to ask questions about the video content through a chatbot interface.
 
+## Authors
+
+- Kevin Binu Thottumkal
+- Jeesmon Cherian
+- Desmond Chen
+
 ## Features
 
 - **YouTube Video Analysis**: Paste a YouTube URL to analyze video content
@@ -15,22 +21,37 @@ A web application that analyzes YouTube videos and allows users to ask questions
 
 ```
 VideoMind-AI/
-├── frontend/                 # Next.js frontend application
+├── frontend/                       # Next.js frontend application
 │   ├── src/
-│   │   ├── app/             # Next.js app router
-│   │   └── components/      # React components
+│   │   ├── app/                    # Next.js app router
+│   │   └── components/             # React components
 │   │       ├── VideoAnalyzer.tsx
 │   │       ├── VideoDisplay.tsx
 │   │       ├── VideoTimestamps.tsx
 │   │       └── Chatbot.tsx
+│   ├── public/                     # Static assets (icons, images)
+│   ├── package.json                # Frontend dependencies
+│   ├── tsconfig.json               # TypeScript config
 │   └── ...
-├── backend/                  # FastAPI backend application
-│   ├── main.py              # Main FastAPI application
-│   ├── requirements.txt     # Python dependencies
-│   ├── setup.bat           # Windows setup script
-│   ├── setup.sh            # Unix/Linux setup script
-│   └── README.md           # Backend documentation
-└── README.md
+├── backend/                        # FastAPI backend application
+│   ├── main.py                     # Main FastAPI application
+│   ├── pdf_generator.py            # PDF generation logic
+│   ├── requirements.txt            # Python dependencies
+│   ├── setup.bat                   # Windows setup script
+│   ├── setup.sh                    # Unix/Linux setup script
+│   ├── generated_pdfs/             # Temporary PDF storage
+│   └── README.md                   # Backend documentation
+├── videomind_chrome_extension/     # Chrome extension for VideoMind
+│   ├── manifest.json               # Chrome extension manifest
+│   ├── content.js                  # Content script
+│   ├── background.js               # Background script
+│   ├── content.css                 # Extension styles
+│   ├── icon16.png                  # Extension icon (16x16)
+│   ├── icon48.png                  # Extension icon (48x48)
+│   └── icon128.png                 # Extension icon (128x128)
+├── .gitignore
+├── README.md
+└── package-lock.json
 ```
 
 ## Quick Start
@@ -43,14 +64,8 @@ VideoMind-AI/
    ```
 
 2. **Run setup script:**
-   - **Windows:** Double-click `setup.bat` or run:
      ```bash
-     setup.bat
-     ```
-   - **Unix/Linux:** Run:
-     ```bash
-     chmod +x setup.sh
-     ./setup.sh
+     python main.py
      ```
 
 3. **Create environment file:**
