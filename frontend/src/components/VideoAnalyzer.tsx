@@ -257,7 +257,7 @@ export function YouTubeAnalyzer() {
                     }}
                     className="text-sm text-zinc-400 hover:text-white transition-colors"
                     >
-                    Clear
+                    Reset
                     </button>
                     <button
                     onClick={async () => {
