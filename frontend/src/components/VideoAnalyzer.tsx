@@ -803,7 +803,7 @@ export function YouTubeAnalyzer() {
                 type="text"
                 value={visualSearchQuery}
                 onChange={(e) => setVisualSearchQuery(e.target.value)}
-                placeholder="e.g., a person speaking, a city skyline, a product close-up"
+                placeholder="Generate Embeddings first then ask about something visual in the video"
                 className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 disabled={visualSearchLoading || generatingEmbeddings || !embeddingsGenerated}
               />
