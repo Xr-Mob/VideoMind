@@ -21,7 +21,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 # Backend Configuration
 HOST=0.0.0.0
-PORT=8000
+PORT=8001
 
 # CORS Settings
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost
