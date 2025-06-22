@@ -1,0 +1,82 @@
+/* content.css */
+
+#youtube-analyzer-button {
+  position: fixed;
+  top: 100px;
+  right: 20px;
+  z-index: 99999;
+  cursor: pointer;
+  
+  height: 30px;
+
+  background-color: #4b4b4b;
+  color: rgb(218, 218, 218);
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap; /* Prevents text from wrapping onto a new line */
+
+  display: flex;
+  flex-direction: column; /* Stacks the drag-handle and content-wrapper vertically */
+
+  transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.1s ease-out;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+#youtube-analyzer-button:hover {
+  background-color: #666666;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+#youtube-analyzer-button:active {
+  transform: translateY(0);
+}
+
+/* Style for the drag handle */
+#youtube-analyzer-button .drag-handle {
+  width: 20px;
+  height: 20px;
+  margin-left: 10px;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 8px 8px 8px 8px;
+  cursor: grab;
+  flex-shrink: 0;
+  align-items: center;
+  position: relative; /* For the handle dots if added */
+}
+
+#youtube-analyzer-button .drag-handle:active {
+  cursor: grabbing; /* Cursor when actively dragging */
+}
+
+/* Optional: Add some dots to the handle to make it look draggable */
+#youtube-analyzer-button .drag-handle::after {
+  content: "•••"; /* Unicode dots */
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+/* Wrapper for button text and icon (ensures they are on one line) */
+#youtube-analyzer-button .button-content-wrapper {
+  display: flex;     
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex-grow: 1;
+}
+
+/* Style for the button's text */
+#youtube-analyzer-button .button-text {
+  margin-left: 5px;
+  margin-right: 0;
+}
+
+/* Style for the icon inside the button */
+#youtube-analyzer-button .button-icon {
+  width: 25px;
+  height: 25px; 
+  margin-right: 5px;
+}
