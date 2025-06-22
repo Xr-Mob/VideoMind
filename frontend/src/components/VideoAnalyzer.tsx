@@ -245,20 +245,37 @@ export function YouTubeAnalyzer() {
       {/* Summary Display */}
       {summary && !loading && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Video Summary</h2>
-            <button
-              onClick={() => {
-                setSummary("");
-                setVideoUrl("");
-                setChatMessages([]);
-                setShowChat(false);
-              }}
-              className="text-sm text-zinc-400 hover:text-white transition-colors"
-            >
-              Clear
-            </button>
-          </div>
+            <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">Video Summary</h2>
+                <div className="flex space-x-3">
+                    <button
+                    onClick={() => {
+                        setSummary("");
+                        setVideoUrl("");
+                        setChatMessages([]);
+                        setShowChat(false);
+                    }}
+                    className="text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                    Clear
+                    </button>
+                    <button
+                    onClick={async () => {
+                        const encoded = encodeURIComponent(summary);
+                        const response = await fetch(`http://localhost:8000/download_summary_pdf?summary=${encoded}`);
+                        const blob = await response.blob();
+                        const link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+                        link.download = "video_summary.pdf";
+                        link.click();
+                    }}
+                    className="text-sm text-blue-400 hover:text-white underline"
+                    >
+                    Download PDF
+                    </button>
+                </div>
+            </div>
+
           
           <div className="p-6 bg-white/[0.05] border border-white/[0.1] rounded-lg backdrop-blur-sm">
             <div className="prose prose-invert max-w-none">
