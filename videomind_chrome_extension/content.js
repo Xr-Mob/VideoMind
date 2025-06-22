@@ -1,4 +1,7 @@
-// content.js
+// A sticky floating button for YouTube that opens a React app for video analysis.
+// This script creates a draggable button that pauses the video and opens a new window with the React app.
+// Author: [Jeesmon Cherian]
+// Date: [22 June 2025]
 
 // Define the URL of your React app.
 const ANALYZER_BASE_URL = "http://localhost:3000/"; 
