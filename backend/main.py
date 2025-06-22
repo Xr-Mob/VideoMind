@@ -1,6 +1,8 @@
 import asyncio
 import re
-from pydantic import BaseModel
+import json
+import numpy as np
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
@@ -13,7 +15,20 @@ from typing import List, Optional
 # Load environment variables
 load_dotenv()
 
+# --- Global In-Memory Storage for Video Embeddings ---
+video_embeddings_store = {}
+
 # Configure Gemini
+try:
+    gen_api_key=os.getenv("GEMINI_API_KEY")
+    if not gen_api_key:
+        raise ValueError("API Key not found in enviornment variables!")
+    genai.configure(api_key=gen_api_key)
+    #Text analysis model
+    model = genai.GenerativeModel('gemini-2.5-flash')
+except ValueError as e:
+    print(f"Configuration Error: {e}")
+    model =None
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))  # type: ignore
 model = genai.GenerativeModel('gemini-1.5-flash')  # type: ignore  # Using 1.5 flash for text analysis
 
@@ -70,6 +85,29 @@ class VideoAnalysisResponse(BaseModel):
     video_summary: str
     summary_timestamps: List[SummaryTimestamp]
     has_transcript: bool
+
+class VisualSearchRequest(BaseModel):
+    youtube_url: str
+    search_query: str
+
+class VideoDescription(BaseModel):
+    timestamp: int = Field(description="Timestamp in seconds for the described scene.")
+    description: str = Field(description="Textual description of the visual content at this timestamp.")
+    embedding: list[float] = Field(description="Embedding vector for the description.")
+
+class VideoEmbeddingsResponse(BaseModel):
+    video_id: str
+    descriptions: list[VideoDescription]
+
+class VisualSearchResult(BaseModel):
+    timestamp: int
+    description: str
+    similarity_score: float
+
+class VisualSearchResultsResponse(BaseModel):
+    video_id: str
+    search_query: str
+    results: list[VisualSearchResult]
 
 def extract_video_id(youtube_url: str) -> str:
     """Extract video ID from YouTube URL"""
@@ -219,6 +257,18 @@ async def generate_video_summary_with_timestamps(transcript: Optional[str], vide
     except Exception as e:
         print(f"Error generating summary: {e}")
         raise
+
+# Function to calculate cosine similarity between two vectors
+def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
+    """Calculates the cosine similarity between two vectors."""
+    v1 = np.array(vec1)
+    v2 = np.array(vec2)
+    dot_product = np.dot(v1, v2)
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0.0 # Avoid division by zero
+    return dot_product / (norm_v1 * norm_v2)
 
 async def generate_chat_response(transcript: Optional[str], query: str, video_url: str) -> str:
     """Generate chat response using Gemini"""
@@ -434,6 +484,179 @@ async def analyze_youtube_video(request_data: UrlAnalyzeRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Video analysis failed: {str(e)}. Please ensure the video URL is valid and try again."
+        )
+    
+@app.post("/generate_embeddings", response_model=VideoEmbeddingsResponse)
+async def generate_video_descriptions_and_embeddings(youtube_url_data: UrlAnalyzeRequest):
+    youtube_url_string = youtube_url_data.youtube_url
+    video_id = extract_video_id(youtube_url_string)
+    if not video_id:
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL provided.")
+
+    if not model:
+        raise HTTPException(status_code=500, detail="Gemini AI video understanding model not initialized. Check API key.")
+
+    try:
+        description_prompt = """
+        You are video analysis. For the provided video, generate a list of detailed visual descriptions for key moments, scenes, clothes, colors etc with accurate timestamps. Never provide a timestamp which is not in range of the video.
+        For each description, provide a timestamp in seconds when the scene occurs. Aim for as many distinct descriptions covering different parts of the video's visual content, but never cross the limit of 200. 
+
+        Format your response as a JSON array of objects, where each object has:
+        - "timestamp": integer (seconds from the start of the video)
+        - "description": string (a detailed visual description of the scene)
+
+        Use MM:SS format for time.
+        
+        Example JSON structure:
+        [
+            {
+                "timestamp": 1:10,
+                "description": "A wide shot of a cityscape with towering skyscrapers under a clear blue sky."
+            },
+            {
+                "timestamp": 00:45,
+                "description": "A close-up of a person's hands typing rapidly on a glowing holographic keyboard."
+            }
+        ]
+        """
+        
+        print(f"Generating visual descriptions for '{youtube_url_string}' using 'gemini-2.0-flash'...")
+
+        gemini_response = await asyncio.to_thread(
+            lambda: model.generate_content( # Using video_understanding_model
+                contents=[
+                    {
+                        "file_data": {
+                            "file_uri": youtube_url_string,
+                            "mime_type": "video/mp4"
+                        }
+                    },
+                    {"text": description_prompt}
+                ],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "response_schema": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "timestamp": {"type": "INTEGER"},
+                                "description": {"type": "STRING"}
+                            },
+                            "required": ["timestamp", "description"]
+                        }
+                    }
+                }
+            )
+        )
+
+        raw_descriptions_json = gemini_response.candidates[0].content.parts[0].text
+        parsed_descriptions = json.loads(raw_descriptions_json)
+
+        # Generate embeddings for each description and store them
+        embedded_descriptions = []
+        for desc_obj in parsed_descriptions:
+            description_text = desc_obj["description"]
+            timestamp = desc_obj["timestamp"]
+
+            print(f"Embedding description for timestamp {timestamp}: '{description_text[:50]}...'")
+            
+            embedding_response = await asyncio.to_thread(
+                lambda: genai.embed_content(
+                    model='models/embedding-001',
+                    content=description_text,
+                    task_type="RETRIEVAL_DOCUMENT"
+                )
+            )
+            embedding_vector = embedding_response['embedding']
+            
+            # Create a VideoDescription object and append
+            vd = VideoDescription(
+                timestamp=timestamp,
+                description=description_text,
+                embedding=embedding_vector
+            )
+            embedded_descriptions.append(vd)
+        
+        # Store the generated embeddings in the global store for later search
+        video_embeddings_store[video_id] = embedded_descriptions
+        print(f"Stored {len(embedded_descriptions)} visual descriptions for video ID: {video_id}")
+
+        return VideoEmbeddingsResponse(video_id=video_id, descriptions=embedded_descriptions)
+
+    except Exception as e:
+        print(f"An error occurred during video description and embedding generation: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate video descriptions and embeddings: {e}. "
+                   "Ensure the video is public and accessible, and Gemini API key is valid."
+        )
+
+# NEW ENDPOINT: Perform Natural Language Visual Search
+@app.post("/perform_visual_search", response_model=VisualSearchResultsResponse)
+async def perform_visual_search(request_data: VisualSearchRequest):
+    video_url_to_search = request_data.youtube_url
+    search_query = request_data.search_query
+
+    try:
+        video_id = extract_video_id(video_url_to_search)
+        if not video_id:
+            raise HTTPException(status_code=400, detail="Invalid YouTube URL provided for search.")
+
+        # Check if embeddings for this video are already stored
+        if video_id not in video_embeddings_store or not video_embeddings_store[video_id]:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No visual embeddings found for video ID: {video_id}. "
+                       "Please run the 'generate_video_descriptions_and_embeddings' endpoint first."
+            )
+        
+        stored_descriptions = video_embeddings_store[video_id]
+
+        # Generate embedding for the search query
+        print(f"Generating embedding for search query: '{search_query}'")
+        query_embedding_response = await asyncio.to_thread(
+            lambda: genai.embed_content(
+                model='models/embedding-001',
+                content=search_query,
+                task_type="RETRIEVAL_QUERY" # Recommended task type for queries
+            )
+        )
+        query_embedding_vector = query_embedding_response['embedding']
+
+        # Perform similarity search
+        search_results = []
+        for vd in stored_descriptions:
+            similarity = cosine_similarity(query_embedding_vector, vd.embedding)
+            search_results.append(VisualSearchResult(
+                timestamp=vd.timestamp,
+                description=vd.description,
+                similarity_score=similarity
+            ))
+        
+        # Sort results by similarity score in descending order
+        search_results.sort(key=lambda x: x.similarity_score, reverse=True)
+
+        # Return top N results (e.g., top 5)
+        top_results = search_results[:3] # You can adjust N here
+
+        print(f"Found {len(top_results)} visual search results for '{search_query}' in video {video_id}.")
+
+        return VisualSearchResultsResponse(
+            video_id=video_id,
+            search_query=search_query,
+            results=top_results
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException: # Re-raise if it's already an HTTPException
+        raise
+    except Exception as e:
+        print(f"An unexpected error occurred during visual search: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Visual search failed: {str(e)}. Please ensure your API key is valid and embeddings were generated."
         )
 
 @app.post("/chat")
