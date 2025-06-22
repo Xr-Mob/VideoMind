@@ -38,6 +38,18 @@ export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
 
     const navigateToTime = (seconds: number) => {
       try {
+        // Validate seconds before navigation
+        if (seconds < 0) {
+          console.warn(`VideoDisplay: Cannot navigate to negative seconds: ${seconds}`);
+          return;
+        }
+        
+        // Reasonable upper limit (2 hours = 7200 seconds)
+        if (seconds > 7200) {
+          console.warn(`VideoDisplay: Cannot navigate beyond reasonable limit: ${seconds}s`);
+          return;
+        }
+        
         if (iframeRef.current) {
           const videoId = extractVideoId(videoUrl);
           if (videoId) {

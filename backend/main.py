@@ -11,13 +11,15 @@ from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional
 import re
+import requests
+import json
 
 # Load environment variables
 load_dotenv()
 
 # Configure Gemini
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))  # type: ignore
-model = genai.GenerativeModel('gemini-1.5-flash')  # type: ignore  # Using 1.5 flash for text analysis
+model = genai.GenerativeModel('gemini-2.5-flash')  # type: ignore  # Using 2.5 flash for text analysis
 
 app = FastAPI(
     title="VIDEOMIND-AI",
@@ -91,6 +93,25 @@ def extract_video_id(youtube_url: str) -> str:
     
     return video_id
 
+async def get_video_duration(video_id: str) -> Optional[int]:
+    """Fetch video duration from YouTube API"""
+    try:
+        # You can use YouTube Data API v3 to get video duration
+        # For now, we'll use a simple approach with the oEmbed API
+        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        response = requests.get(oembed_url, timeout=10)
+        
+        if response.status_code == 200:
+            # Note: oEmbed doesn't provide duration, but we can use it to validate the video exists
+            # For actual duration, you'd need YouTube Data API v3 with an API key
+            return None  # We'll implement duration validation later
+        else:
+            print(f"Failed to fetch video info for {video_id}")
+            return None
+    except Exception as e:
+        print(f"Error fetching video duration: {e}")
+        return None
+
 async def get_video_transcript(video_id: str) -> Optional[str]:
     """Fetch transcript from YouTube"""
     try:
@@ -109,18 +130,57 @@ async def get_video_transcript(video_id: str) -> Optional[str]:
         return None
 
 def time_to_seconds(time_str: str) -> int:
-    """Convert time string (MM:SS or HH:MM:SS) to seconds"""
-    parts = time_str.split(':')
-    if len(parts) == 2:
-        # MM:SS format
-        minutes, seconds = map(int, parts)
-        return minutes * 60 + seconds
-    elif len(parts) == 3:
-        # HH:MM:SS format
-        hours, minutes, seconds = map(int, parts)
-        return hours * 3600 + minutes * 60 + seconds
-    else:
+    """Convert time string (MM:SS or HH:MM:SS) to seconds with validation"""
+    try:
+        parts = time_str.split(':')
+        if len(parts) == 2:
+            # MM:SS format
+            minutes, seconds = map(int, parts)
+            if minutes < 0 or seconds < 0 or seconds > 59:
+                print(f"Invalid time format: {time_str}")
+                return 0
+            return minutes * 60 + seconds
+        elif len(parts) == 3:
+            # HH:MM:SS format
+            hours, minutes, seconds = map(int, parts)
+            if hours < 0 or minutes < 0 or minutes > 59 or seconds < 0 or seconds > 59:
+                print(f"Invalid time format: {time_str}")
+                return 0
+            return hours * 3600 + minutes * 60 + seconds
+        else:
+            print(f"Invalid time format: {time_str}")
+            return 0
+    except (ValueError, TypeError) as e:
+        print(f"Error converting time {time_str} to seconds: {e}")
         return 0
+
+def validate_timestamps(timestamps: List[Timestamp], max_duration: Optional[int] = None) -> List[Timestamp]:
+    """Validate and filter timestamps to ensure they're within valid ranges"""
+    valid_timestamps = []
+    
+    for ts in timestamps:
+        # Basic validation
+        if ts.seconds < 0:
+            print(f"Skipping timestamp with negative seconds: {ts.time} ({ts.seconds}s)")
+            continue
+            
+        # If we have max duration, validate against it
+        if max_duration and ts.seconds > max_duration:
+            print(f"Skipping timestamp beyond video duration: {ts.time} ({ts.seconds}s) > {max_duration}s")
+            continue
+            
+        # Validate time format
+        if not re.match(r'^\d{1,2}:\d{2}(:\d{2})?$', ts.time):
+            print(f"Skipping timestamp with invalid format: {ts.time}")
+            continue
+            
+        valid_timestamps.append(ts)
+    
+    # Sort by seconds to ensure chronological order
+    valid_timestamps.sort(key=lambda x: x.seconds)
+    
+    print(f"Validated {len(valid_timestamps)} timestamps out of {len(timestamps)}")
+    return valid_timestamps
 
 def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
     """Extract timestamps from summary text and create SummaryTimestamp objects"""
@@ -140,6 +200,17 @@ def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
             time_str = match.group(2)
             start_pos = match.start()
             
+            # Validate time format before processing
+            if not re.match(r'^\d{1,2}:\d{2}(:\d{2})?$', time_str):
+                print(f"Skipping invalid time format in summary: {time_str}")
+                continue
+            
+            # Convert to seconds and validate
+            seconds = time_to_seconds(time_str)
+            if seconds == 0 and time_str != "0:00":
+                print(f"Skipping invalid timestamp conversion: {time_str}")
+                continue
+            
             # Clean up description
             description = re.sub(r'\s+', ' ', description)
             if len(description) > 80:
@@ -148,7 +219,7 @@ def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
             timestamps.append(SummaryTimestamp(
                 time=time_str,
                 description=description,
-                seconds=time_to_seconds(time_str),
+                seconds=seconds,
                 text_position=start_pos
             ))
     
@@ -160,7 +231,26 @@ def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
             unique_timestamps.append(ts)
             seen_positions.add(ts.text_position)
     
-    return sorted(unique_timestamps, key=lambda x: x.text_position)
+    # Sort by position and then validate
+    sorted_timestamps = sorted(unique_timestamps, key=lambda x: x.text_position)
+    
+    # Additional validation for summary timestamps
+    valid_timestamps = []
+    for ts in sorted_timestamps:
+        # Basic validation
+        if ts.seconds < 0:
+            print(f"Skipping summary timestamp with negative seconds: {ts.time}")
+            continue
+        
+        # Reasonable upper limit for summary timestamps (2 hours)
+        if ts.seconds > 7200:
+            print(f"Skipping summary timestamp beyond reasonable limit: {ts.time} ({ts.seconds}s)")
+            continue
+        
+        valid_timestamps.append(ts)
+    
+    print(f"Extracted {len(valid_timestamps)} valid timestamps from summary")
+    return valid_timestamps
 
 async def generate_video_summary_with_timestamps(transcript: Optional[str], video_url: str) -> tuple[str, List[SummaryTimestamp]]:
     """Generate summary using Gemini with timestamps included"""
@@ -180,7 +270,7 @@ async def generate_video_summary_with_timestamps(transcript: Optional[str], vide
     Use this exact format for each summary point:
     
     **Overview:**
-    A brief 2-3 sentence overview of what the video is about. [0:00]
+    A brief 2-3 sentence overview of what the video is about. (No 0:00 timestamp)
     
     **Key Topics:**
     • Main topic 1 description here. [1:30]
@@ -202,6 +292,7 @@ async def generate_video_summary_with_timestamps(transcript: Optional[str], vide
     - Do NOT put timestamps in the middle of sentences
     - Each bullet point or paragraph should end with its relevant timestamp
     - Keep the summary flowing naturally without timestamp interruptions
+    - The topics, along with the timestamps, should be wide-spread throughout the video
     
     Video URL: {video_url}
     
@@ -262,13 +353,18 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
     if len(transcript) > max_chars:
         transcript = transcript[:max_chars] + "..."
     
-    prompt = f"""
-    Based on the video transcript, create 5-8 key timestamps that highlight important moments in the video.
+    # Get video ID for potential duration validation
+    video_id = extract_video_id(video_url)
+    video_duration = await get_video_duration(video_id)
     
+    prompt = f"""
+    Based on the video transcript, create key timestamps that highlight important moments in the video, from the start to the end of the video.
+    The timestamps should be wide-spread throughout the video, not just at the beginning or end.
+
     For each timestamp, provide:
-    1. Time in MM:SS format
+    1. Time in MM:SS format (e.g., "01:30", "05:45")
     2. A brief description of what happens at that moment
-    3. The time in seconds for navigation
+    3. The time in seconds for navigation (e.g., 1:30 = 90 seconds)
     
     IMPORTANT: Return ONLY a valid JSON array with this exact format:
     [
@@ -277,14 +373,17 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
         {{"time": "03:45", "description": "Key concept explanation", "seconds": 225}},
         {{"time": "05:20", "description": "Practical example", "seconds": 320}},
         {{"time": "07:10", "description": "Conclusion", "seconds": 430}}
+        ...
     ]
     
     Rules:
     - Use MM:SS format for time (e.g., "01:30", "05:45")
-    - Convert time to seconds (e.g., 1:30 = 90 seconds)
+    - Convert time to seconds correctly (e.g., 1:30 = 90 seconds)
     - Keep descriptions concise but informative
     - Cover the entire video duration
     - Focus on key moments, transitions, and important content
+    - Ensure seconds values are accurate and match the time format
+    - Do not generate timestamps beyond reasonable video length (max 2 hours = 7200 seconds)
     
     Video URL: {video_url}
     Transcript: {transcript}
@@ -314,17 +413,24 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
                 timestamps = []
                 for item in timestamps_data:
                     if isinstance(item, dict) and 'time' in item and 'description' in item and 'seconds' in item:
+                        # Validate the seconds value matches the time format
+                        expected_seconds = time_to_seconds(item['time'])
+                        if expected_seconds != item['seconds']:
+                            print(f"Warning: Seconds mismatch for {item['time']}. Expected: {expected_seconds}, Got: {item['seconds']}")
+                            # Use the calculated value instead
+                            item['seconds'] = expected_seconds
+                        
                         timestamps.append(Timestamp(
                             time=item['time'],
                             description=item['description'],
                             seconds=item['seconds']
                         ))
                 
-                # Sort by seconds to ensure chronological order
-                timestamps.sort(key=lambda x: x.seconds)
+                # Validate timestamps before returning
+                valid_timestamps = validate_timestamps(timestamps, video_duration)
                 
-                print(f"Generated {len(timestamps)} timestamps from Gemini response")
-                return timestamps
+                print(f"Generated {len(valid_timestamps)} valid timestamps from Gemini response")
+                return valid_timestamps
                 
             except json.JSONDecodeError as e:
                 print(f"Failed to parse JSON from Gemini response: {e}")
@@ -332,7 +438,9 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
         
         # Fallback: try to extract timestamps using regex if JSON parsing fails
         print("JSON parsing failed, attempting regex extraction...")
-        return extract_timestamps_from_text(response_text)
+        fallback_timestamps = extract_timestamps_from_text(response_text)
+        valid_timestamps = validate_timestamps(fallback_timestamps, video_duration)
+        return valid_timestamps
         
     except Exception as e:
         print(f"Error generating timestamps: {e}")
@@ -360,7 +468,36 @@ def extract_timestamps_from_text(text: str) -> List[Timestamp]:
         for match in matches:
             time_str = match.group(1)
             description = match.group(2).strip()
-            seconds = int(match.group(3)) if len(match.groups()) > 2 else time_to_seconds(time_str)
+            
+            # Validate time format
+            if not re.match(r'^\d{1,2}:\d{2}(:\d{2})?$', time_str):
+                print(f"Skipping invalid time format in regex extraction: {time_str}")
+                continue
+            
+            # Get seconds value
+            if len(match.groups()) > 2:
+                try:
+                    seconds = int(match.group(3))
+                    # Validate that seconds match the time format
+                    expected_seconds = time_to_seconds(time_str)
+                    if expected_seconds != seconds:
+                        print(f"Warning: Seconds mismatch in regex extraction. Time: {time_str}, Expected: {expected_seconds}, Got: {seconds}")
+                        seconds = expected_seconds
+                except (ValueError, TypeError):
+                    print(f"Invalid seconds value in regex extraction: {match.group(3)}")
+                    seconds = time_to_seconds(time_str)
+            else:
+                seconds = time_to_seconds(time_str)
+            
+            # Validate seconds
+            if seconds < 0:
+                print(f"Skipping timestamp with negative seconds: {time_str}")
+                continue
+            
+            # Reasonable upper limit (2 hours)
+            if seconds > 7200:
+                print(f"Skipping timestamp beyond reasonable limit: {time_str} ({seconds}s)")
+                continue
             
             # Clean up description
             description = re.sub(r'\s+', ' ', description)

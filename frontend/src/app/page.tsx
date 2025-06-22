@@ -3,7 +3,7 @@ import { YouTubeAnalyzer } from "@/components/VideoAnalyzer";
 export default async function Home() {
   return (
     <div className="min-h-screen bg-gradient-radial from-zinc-800 via-zinc-900 to-black">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col items-center justify-center space-y-8 text-center">
           <div className="max-w-2xl">
