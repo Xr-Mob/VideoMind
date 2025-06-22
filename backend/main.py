@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional
+from pdf_generator import router as pdf_router
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +47,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+app.include_router(pdf_router)
 
 # Request models
 class UrlAnalyzeRequest(BaseModel):
