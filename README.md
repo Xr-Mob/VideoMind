@@ -63,12 +63,7 @@ VideoMind-AI/
    cd backend
    ```
 
-2. **Run setup script:**
-     ```bash
-     python main.py
-     ```
-
-3. **Create environment file:**
+2. **Create environment file:**
    Create a `.env` file in the backend directory:
    ```env
    GEMINI_API_KEY=your_gemini_api_key_here
@@ -76,17 +71,28 @@ VideoMind-AI/
    
    Get your Gemini API key from: https://makersuite.google.com/app/apikey
 
-4. **Start the backend:**
+3. **Create the virtual machine to download the dependencies in:**
+     ```bash
+     python -m venv venv
+     ```
+
+4. **Activate the virtual machine:**
    ```bash
-   # Activate virtual environment first
    venv\Scripts\activate.bat  # Windows
    source venv/bin/activate   # Unix/Linux
    
-   # Start the server
-   python main.py
-   ```
 
-The backend will be available at `http://localhost:8000`
+5. **Download dependencies:**
+```bash
+pip install -r requirements.txt 
+```
+
+6. **Start the server:**
+```bash
+python main.py
+```
+
+The backend will be available at `http://localhost:8001`
 
 ### Frontend Setup
 
@@ -156,7 +162,7 @@ The frontend will be available at `http://localhost:3000`
    - Try: `pip install uvicorn[standard]`
 
 2. **CORS errors:**
-   - Ensure the backend is running on `http://localhost:8000`
+   - Ensure the backend is running on `http://localhost:8001`
    - Check that CORS is properly configured in the backend
 
 3. **API key errors:**
@@ -172,15 +178,3 @@ The frontend will be available at `http://localhost:3000`
 - **Backend logs**: Check the terminal where the backend is running
 - **Frontend logs**: Check the browser console (F12)
 - **Network issues**: Use browser dev tools to inspect API requests
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-This project is open source and available under the MIT License. 
