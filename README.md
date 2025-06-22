@@ -6,7 +6,7 @@ A web application that analyzes YouTube videos and allows users to ask questions
 
 - Kevin Binu Thottumkal
 - Jeesmon Cherian
-- Desmond Chen
+- Desmond Zhu
 
 ## Features
 
