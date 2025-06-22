@@ -31,7 +31,7 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8001/timestamps", {
+      const response = await fetch("http://localhost:8000/timestamps", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -178,9 +178,36 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
       {/* Footer */}
       <div className="mt-4 pt-4 border-t border-white/[0.1]">
         <p className="text-xs text-zinc-500 text-center">
-          {timestamps.length} timestamps available • Click to navigate within video
+          {timestamps.length} timestamps available
         </p>
       </div>
+
+      {/* Custom scrollbar styles */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(39, 39, 42, 0.3);
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(113, 113, 122, 0.5);
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(113, 113, 122, 0.7);
+        }
+        
+        /* Firefox */
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(113, 113, 122, 0.5) rgba(39, 39, 42, 0.3);
+        }
+      `}</style>
     </div>
   );
-} 
+}
