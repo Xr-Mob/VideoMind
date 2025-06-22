@@ -4,3 +4,4 @@ google-generativeai
 youtube-transcript-api
 python-dotenv
 pydantic
+numpy
