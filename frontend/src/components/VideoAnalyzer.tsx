@@ -41,15 +41,14 @@ export function YouTubeAnalyzer() {
     }
   }, []); // Run only once on mount
 
-  // NEW: Visual Search states
+  // Visual Search states
   const [visualSearchQuery, setVisualSearchQuery] = useState("");
   const [visualSearchResults, setVisualSearchResults] = useState<Array<{timestamp: number, description: string, similarity_score: number}>>([]);
   const [visualSearchLoading, setVisualSearchLoading] = useState(false);
   const [visualSearchError, setVisualSearchError] = useState("");
-  const [showVisualSearch, setShowVisualSearch] = useState(false); // To control visibility of visual search section
-  const [embeddingsGenerated, setEmbeddingsGenerated] = useState(false); // State to track if embeddings are generated
-  const [generatingEmbeddings, setGeneratingEmbeddings] = useState(false); // State to track if embeddings are currently being generated
-
+  const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [embeddingsGenerated, setEmbeddingsGenerated] = useState(false);
+  const [generatingEmbeddings, setGeneratingEmbeddings] = useState(false);
 
   const [videoDisplayReady, setVideoDisplayReady] = useState(false);
   
@@ -105,14 +104,12 @@ export function YouTubeAnalyzer() {
     setVideoDisplayReady(false);
     setChatMessages([]);
     setShowChat(false);
-    // NEW: Reset visual search states
     setVisualSearchQuery("");
     setVisualSearchResults([]);
     setVisualSearchError("");
     setShowVisualSearch(false);
-    setEmbeddingsGenerated(false); // Reset embeddings generated state
-    setGeneratingEmbeddings(false); // Reset generating embeddings state
-
+    setEmbeddingsGenerated(false);
+    setGeneratingEmbeddings(false);
 
     try {
 
@@ -137,10 +134,8 @@ export function YouTubeAnalyzer() {
         setAnalysisComplete(true);
         setShowTimestamps(true);
         setShowVideoDisplay(true);
-        
-        // No longer triggering embedding generation here, moved to button click
-        setShowChat(true); // Enable chat after successful analysis
-        setShowVisualSearch(true); // Show visual search section, but embeddings not yet generated
+        setShowChat(true);
+        setShowVisualSearch(true);
       } else {
         throw new Error("Failed to generate summary");
       }
@@ -152,10 +147,10 @@ export function YouTubeAnalyzer() {
     }
   };
 
-  // NEW: Function to generate embeddings for visual search
+  // Function to generate embeddings for visual search
   const generateEmbeddingsForVisualSearch = async (url: string) => {
-    setGeneratingEmbeddings(true); // Set loading state for embedding generation
-    setVisualSearchError(""); // Clear any previous errors
+    setGeneratingEmbeddings(true);
+    setVisualSearchError("");
     try {
 
       /* for Windows Users, if the port 8000 is occupied, use port 8001*/ 
@@ -173,16 +168,16 @@ export function YouTubeAnalyzer() {
         throw new Error(data.detail || "Failed to generate visual embeddings");
       }
       console.log("Visual embeddings generated successfully:", data);
-      setEmbeddingsGenerated(true); // Set embeddings generated to true
+      setEmbeddingsGenerated(true);
     } catch (err: any) {
       console.error("Error generating visual embeddings:", err);
       setVisualSearchError(`Failed to prepare for visual search: ${err.message}`);
     } finally {
-      setGeneratingEmbeddings(false); // Clear loading state
+      setGeneratingEmbeddings(false);
     }
   };
 
-  // NEW: Function to perform visual search
+  // Function to perform visual search
   const performVisualSearch = async () => {
     if (!visualSearchQuery.trim() || !videoUrl) return;
 
@@ -531,14 +526,6 @@ export function YouTubeAnalyzer() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Helper to generate YouTube timestamp URL
-  const generateYouTubeTimestampLink = (url: string, seconds: number) => {
-    const parsedUrl = new URL(url);
-    parsedUrl.searchParams.set('t', `${seconds}s`);
-    return parsedUrl.toString();
-  };
-
-
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -655,13 +642,12 @@ export function YouTubeAnalyzer() {
                     setAnalysisComplete(false);
                     setChatMessages([]);
                     setShowChat(false);
-                    // NEW: Clear visual search states as well
                     setVisualSearchQuery("");
                     setVisualSearchResults([]);
                     setVisualSearchError("");
                     setShowVisualSearch(false);
-                    setEmbeddingsGenerated(false); // Clear embeddings generated state
-                    setGeneratingEmbeddings(false); // Clear generating embeddings state
+                    setEmbeddingsGenerated(false);
+                    setGeneratingEmbeddings(false);
                 }}
                 className="text-sm text-zinc-400 hover:text-white transition-colors"
                 >
@@ -781,8 +767,8 @@ export function YouTubeAnalyzer() {
         </div>
       )}
 
-      {/* NEW: Visual Search Section */}
-      {showVisualSearch && summary && ( // Show only if summary is present and embeddings are ready
+      {/* Visual Search Section */}
+      {showVisualSearch && summary && (
         <div className="space-y-4 animate-fadeIn">
           <div className="flex items-center space-x-2">
             <h2 className="text-xl font-semibold text-white">Visual Embedding Analysis</h2>
@@ -819,7 +805,7 @@ export function YouTubeAnalyzer() {
                 onChange={(e) => setVisualSearchQuery(e.target.value)}
                 placeholder="e.g., a person speaking, a city skyline, a product close-up"
                 className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                disabled={visualSearchLoading || generatingEmbeddings || !embeddingsGenerated} // Disable input if generating or searching
+                disabled={visualSearchLoading || generatingEmbeddings || !embeddingsGenerated}
               />
               <button
                 type="submit"
@@ -870,12 +856,12 @@ export function YouTubeAnalyzer() {
                 {visualSearchResults.map((result, index) => (
                   <div key={index} className="bg-zinc-800 p-3 rounded-lg text-zinc-200 text-sm">
                     <p>
-                      <a
+                      <button
                         onClick={() => handleTimestampClick(result.timestamp)}
-                        className="text-blue-400 hover:text-blue-300 underline font-medium"
+                        className="text-blue-400 hover:text-blue-300 underline font-medium cursor-pointer"
                       >
                         [{formatSecondsToMMSS(result.timestamp)}]
-                      </a>
+                      </button>
                       : {result.description}
                     </p>
                     <p className="text-zinc-400 text-xs mt-1">
