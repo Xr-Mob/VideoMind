@@ -1,0 +1,249 @@
+/* Chatbot Markdown Styling */
+
+/* Main markdown content container */
+.markdown-content {
+  color: #e5e7eb;
+  line-height: 1.6;
+}
+
+/* Special link styling */
+.markdown-content .timestamp-link {
+  color: #60a5fa;
+  text-decoration: underline;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.markdown-content .timestamp-link:hover {
+  color: #93c5fd;
+}
+
+.markdown-content .regular-link {
+  color: #60a5fa;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.markdown-content .regular-link:hover {
+  color: #93c5fd;
+}
+
+/* Headers */
+.markdown-content h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.5rem;
+  margin-top: 1rem;
+}
+
+.markdown-content h1:first-child {
+  margin-top: 0;
+}
+
+.markdown-content h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.markdown-content h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-content h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.markdown-content h3:first-child {
+  margin-top: 0;
+}
+
+/* Paragraphs */
+.markdown-content p {
+  color: #e5e7eb;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
+.markdown-content ul {
+  list-style-type: disc;
+  list-style-position: inside;
+  color: #e5e7eb;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+  list-style-position: inside;
+  color: #e5e7eb;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-content li {
+  color: #e5e7eb;
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content ul:last-child,
+.markdown-content ol:last-child {
+  margin-bottom: 0;
+}
+
+/* Code blocks */
+.markdown-content code {
+  background-color: rgba(31, 41, 55, 0.8);
+  color: #4ade80;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.markdown-content pre {
+  background-color: rgba(31, 41, 55, 0.9);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+  color: #4ade80;
+  border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.markdown-content pre:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: #4ade80;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  margin-bottom: 0.5rem;
+  font-style: italic;
+  color: #d1d5db;
+  background-color: rgba(59, 130, 246, 0.1);
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.markdown-content blockquote:last-child {
+  margin-bottom: 0;
+}
+
+/* Links */
+.markdown-content a {
+  color: #60a5fa;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.markdown-content a:hover {
+  color: #93c5fd;
+}
+
+/* Emphasis */
+.markdown-content strong {
+  font-weight: 600;
+  color: white;
+}
+
+.markdown-content em {
+  font-style: italic;
+  color: #e5e7eb;
+}
+
+/* Tables */
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  min-width: 100%;
+  border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.markdown-content thead {
+  background-color: rgba(31, 41, 55, 0.8);
+}
+
+.markdown-content tbody {
+  /* Default styling */
+}
+
+.markdown-content tr {
+  border-bottom: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.markdown-content th {
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  color: white;
+  font-weight: 600;
+}
+
+.markdown-content td {
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  padding: 0.5rem 0.75rem;
+  color: #e5e7eb;
+}
+
+/* Table wrapper for horizontal scrolling */
+.markdown-content .table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+/* Remove margins from last elements */
+.markdown-content h1:last-child,
+.markdown-content h2:last-child,
+.markdown-content h3:last-child,
+.markdown-content p:last-child,
+.markdown-content ul:last-child,
+.markdown-content ol:last-child,
+.markdown-content blockquote:last-child,
+.markdown-content pre:last-child,
+.markdown-content table:last-child {
+  margin-bottom: 0;
+}
+
+/* Spacing between elements */
+.markdown-content > * + * {
+  margin-top: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .markdown-content table {
+    font-size: 0.875rem;
+  }
+  
+  .markdown-content th,
+  .markdown-content td {
+    padding: 0.375rem 0.5rem;
+  }
+  
+  .markdown-content pre {
+    font-size: 0.75rem;
+  }
+} 

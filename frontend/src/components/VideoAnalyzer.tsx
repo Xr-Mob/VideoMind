@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { VideoTimestamps } from "./VideoTimestamps";
 import { VideoDisplay, VideoDisplayRef } from "./VideoDisplay";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import "./chatbot-markdown.css";
 
 interface SummaryTimestamp {
   time: string;
@@ -44,8 +47,8 @@ export function YouTubeAnalyzer() {
   const [visualSearchLoading, setVisualSearchLoading] = useState(false);
   const [visualSearchError, setVisualSearchError] = useState("");
   const [showVisualSearch, setShowVisualSearch] = useState(false); // To control visibility of visual search section
-  const [embeddingsGenerated, setEmbeddingsGenerated] = useState(false); // NEW: State to track if embeddings are generated
-  const [generatingEmbeddings, setGeneratingEmbeddings] = useState(false); // NEW: State to track if embeddings are currently being generated
+  const [embeddingsGenerated, setEmbeddingsGenerated] = useState(false); // State to track if embeddings are generated
+  const [generatingEmbeddings, setGeneratingEmbeddings] = useState(false); // State to track if embeddings are currently being generated
 
 
   const [videoDisplayReady, setVideoDisplayReady] = useState(false);
@@ -439,40 +442,58 @@ export function YouTubeAnalyzer() {
   };
 
   const formatChatMessage = (content: string) => {
-    // Replace markdown links with actual links
-    const linkPattern = /\[(\d{2}:\d{2})\]\((https?:\/\/[^\s)]+)\)/g;
-    const parts = content.split(linkPattern);
-    
-    const elements = [];
-    for (let index = 0; index < parts.length; index++) {
-      const part = parts[index];
-      
-      // Every third part starting from index 1 is a timestamp
-      if (index % 3 === 1) {
-        const url = parts[index + 1];
-        elements.push(
+    // Custom components for ReactMarkdown to handle timestamp links
+    const components = {
+      // Handle timestamp links specifically
+      a: ({ href, children, ...props }: any) => {
+        // Check if this is a timestamp link (format: [MM:SS](URL))
+        const timestampPattern = /^(\d{2}:\d{2})$/;
+        if (href && timestampPattern.test(children[0])) {
+          return (
+            <a
+              {...props}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="timestamp-link"
+            >
+              [{children}]
+            </a>
+          );
+        }
+        // Regular links
+        return (
           <a
-            key={`link-${index}`}
-            href={url}
+            {...props}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 underline"
+            className="regular-link"
           >
-            {part}
+            {children}
           </a>
         );
-      }
-      // Skip URL parts (index % 3 === 2)
-      else if (index % 3 === 2) {
-        continue; // Skip URL parts
-      }
-      // Regular text (index % 3 === 0)
-      else {
-        elements.push(<span key={`text-${index}`}>{part}</span>);
-      }
-    }
-    
-    return elements;
+      },
+      // Tables need a wrapper for horizontal scrolling
+      table: ({ children, ...props }: any) => (
+        <div className="table-wrapper">
+          <table {...props}>
+            {children}
+          </table>
+        </div>
+      ),
+    };
+
+    return (
+      <div className="markdown-content">
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]}
+          components={components}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   // Helper to format seconds into MM:SS
@@ -668,9 +689,11 @@ export function YouTubeAnalyzer() {
                       }`}
                     >
                       {message.role === 'user' ? (
-                        <p>{message.content}</p>
+                        <p className="text-white">{message.content}</p>
                       ) : (
-                        <p>{formatChatMessage(message.content)}</p>
+                        <div className="text-zinc-100">
+                          {formatChatMessage(message.content)}
+                        </div>
                       )}
                     </div>
                   </div>
