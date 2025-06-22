@@ -840,9 +840,7 @@ export function YouTubeAnalyzer() {
                   <div key={index} className="bg-zinc-800 p-3 rounded-lg text-zinc-200 text-sm">
                     <p>
                       <a
-                        href={generateYouTubeTimestampLink(videoUrl, result.timestamp)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => handleTimestampClick(result.timestamp)}
                         className="text-blue-400 hover:text-blue-300 underline font-medium"
                       >
                         [{formatSecondsToMMSS(result.timestamp)}]
