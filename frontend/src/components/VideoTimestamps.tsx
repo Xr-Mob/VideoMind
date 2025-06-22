@@ -31,6 +31,8 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
     setError("");
 
     try {
+      
+      /* for Windows Users, if the port 8000 is occupied, use port 8001*/ 
       const response = await fetch("http://localhost:8001/timestamps", {
         method: "POST",
         headers: {
@@ -73,6 +75,18 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
   };
 
   const handleTimestampClick = (timestamp: Timestamp) => {
+    // Validate timestamp before navigation
+    if (timestamp.seconds < 0) {
+      console.warn(`Invalid timestamp: negative seconds (${timestamp.seconds})`);
+      return;
+    }
+    
+    // Reasonable upper limit (2 hours = 7200 seconds)
+    if (timestamp.seconds > 7200) {
+      console.warn(`Timestamp beyond reasonable limit: ${timestamp.time} (${timestamp.seconds}s)`);
+      return;
+    }
+    
     // Call the parent callback to navigate the video
     if (onTimestampClick) {
       onTimestampClick(timestamp.seconds);
@@ -174,7 +188,6 @@ export function VideoTimestamps({ videoUrl, isVisible, onTimestampClick }: Video
           background: rgba(113, 113, 122, 0.7);
         }
         
-        /* Firefox */
         .custom-scrollbar {
           scrollbar-width: thin;
           scrollbar-color: rgba(113, 113, 122, 0.5) rgba(39, 39, 42, 0.3);

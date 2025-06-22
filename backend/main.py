@@ -20,17 +20,19 @@ video_embeddings_store = {}
 
 # Configure Gemini
 try:
-    gen_api_key=os.getenv("GEMINI_API_KEY")
+    gen_api_key = os.getenv("GEMINI_API_KEY")
     if not gen_api_key:
-        raise ValueError("API Key not found in enviornment variables!")
+        raise ValueError("API Key not found in environment variables!")
     genai.configure(api_key=gen_api_key)
-    #Text analysis model
+    # Text analysis model
     model = genai.GenerativeModel('gemini-2.5-flash')
+    print("Gemini AI model initialized successfully")
 except ValueError as e:
     print(f"Configuration Error: {e}")
-    model =None
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))  # type: ignore
-model = genai.GenerativeModel('gemini-1.5-flash')  # type: ignore  # Using 1.5 flash for text analysis
+    model = None
+except Exception as e:
+    print(f"Error initializing Gemini model: {e}")
+    model = None
 
 app = FastAPI(
     title="VIDEOMIND-AI",
@@ -145,18 +147,57 @@ async def get_video_transcript(video_id: str) -> Optional[str]:
         return None
 
 def time_to_seconds(time_str: str) -> int:
-    """Convert time string (MM:SS or HH:MM:SS) to seconds"""
-    parts = time_str.split(':')
-    if len(parts) == 2:
-        # MM:SS format
-        minutes, seconds = map(int, parts)
-        return minutes * 60 + seconds
-    elif len(parts) == 3:
-        # HH:MM:SS format
-        hours, minutes, seconds = map(int, parts)
-        return hours * 3600 + minutes * 60 + seconds
-    else:
+    """Convert time string (MM:SS or HH:MM:SS) to seconds with validation"""
+    try:
+        parts = time_str.split(':')
+        if len(parts) == 2:
+            # MM:SS format
+            minutes, seconds = map(int, parts)
+            if minutes < 0 or seconds < 0 or seconds > 59:
+                print(f"Invalid time format: {time_str}")
+                return 0
+            return minutes * 60 + seconds
+        elif len(parts) == 3:
+            # HH:MM:SS format
+            hours, minutes, seconds = map(int, parts)
+            if hours < 0 or minutes < 0 or minutes > 59 or seconds < 0 or seconds > 59:
+                print(f"Invalid time format: {time_str}")
+                return 0
+            return hours * 3600 + minutes * 60 + seconds
+        else:
+            print(f"Invalid time format: {time_str}")
+            return 0
+    except (ValueError, TypeError) as e:
+        print(f"Error converting time {time_str} to seconds: {e}")
         return 0
+
+def validate_timestamps(timestamps: List[Timestamp], max_duration: Optional[int] = None) -> List[Timestamp]:
+    """Validate and filter timestamps to ensure they're within valid ranges"""
+    valid_timestamps = []
+    
+    for ts in timestamps:
+        # Basic validation
+        if ts.seconds < 0:
+            print(f"Skipping timestamp with negative seconds: {ts.time} ({ts.seconds}s)")
+            continue
+            
+        # If we have max duration, validate against it
+        if max_duration and ts.seconds > max_duration:
+            print(f"Skipping timestamp beyond video duration: {ts.time} ({ts.seconds}s) > {max_duration}s")
+            continue
+            
+        # Validate time format
+        if not re.match(r'^\d{1,2}:\d{2}(:\d{2})?$', ts.time):
+            print(f"Skipping timestamp with invalid format: {ts.time}")
+            continue
+            
+        valid_timestamps.append(ts)
+    
+    # Sort by seconds to ensure chronological order
+    valid_timestamps.sort(key=lambda x: x.seconds)
+    
+    print(f"Validated {len(valid_timestamps)} timestamps out of {len(timestamps)}")
+    return valid_timestamps
 
 def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
     """Extract timestamps from summary text and create SummaryTimestamp objects"""
@@ -283,12 +324,22 @@ async def generate_chat_response(transcript: Optional[str], query: str, video_ur
     prompt = f"""
     You are an AI assistant helping users understand a YouTube video. Answer the user's question based on the video transcript.
     
+    **Instructions:**
+    - Provide a helpful and accurate answer based on the video content
+    - Use markdown formatting to structure your response clearly
+    - Use **bold** for emphasis and important points
+    - Use bullet points (- or *) for lists
+    - Use headers (# ## ###) to organize information
+    - Use `code` for technical terms or examples
+    - Use blockquotes (>) for important notes or quotes
+    - If the question cannot be answered from the transcript, politely explain that the information is not available in the video
+    
     Video URL: {video_url}
     User Question: {query}
     
     Video Transcript: {transcript}
     
-    Please provide a helpful and accurate answer based on the video content. If the question cannot be answered from the transcript, politely explain that the information is not available in the video.
+    Please provide a well-formatted response using markdown.
     """
     
     try:
@@ -314,9 +365,9 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
     Based on the video transcript, create key timestamps that highlight important moments in the video.
     
     For each timestamp, provide:
-    1. Time in MM:SS format
+    1. Time in MM:SS format (e.g., "01:30", "05:45")
     2. A brief description of what happens at that moment
-    3. The time in seconds for navigation
+    3. The time in seconds for navigation (e.g., 1:30 = 90 seconds)
     
     IMPORTANT: Return ONLY a valid JSON array with this exact format:
     [
@@ -329,15 +380,17 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
     
     Rules:
     - Use MM:SS format for time (e.g., "01:30", "05:45")
-    - Convert time to seconds (e.g., 1:30 = 90 seconds)
-    - Prioritize logical and thematic boundaries when splitting the transcript (e.g., new topic, question, or segment).
-    - Avoid over-segmenting long videos; prefer **fewer, more meaningful sections**.
-    - For a 10-minute video, return around **3–5** sections.
-    - For a 30-minute video, return around **6–10** sections.
-    - For a 1-hour video, return around **8–15** sections.
-    - For a 2-hour video, return around **10–18** sections.
-    - Typical section length should be **3–6 minutes**, but allow longer if the topic continues.
-    - **Do not create sections shorter than 1 minute**, unless there's a clear, standalone transition or shift.
+    - Convert time to seconds correctly (e.g., 1:30 = 90 seconds)
+    - Ensure seconds values are accurate and match the time format
+    - Do not generate timestamps beyond reasonable video length (max 2 hours = 7200 seconds)
+    - Prioritize logical and thematic boundaries when splitting the transcript
+    - Avoid over-segmenting long videos; prefer fewer, more meaningful sections
+    - For a 10-minute video, return around 3–5 sections
+    - For a 30-minute video, return around 6–10 sections
+    - For a 1-hour video, return around 8–15 sections
+    - For a 2-hour video, return around 10–18 sections
+    - Typical section length should be 3–6 minutes
+    - Do not create sections shorter than 1 minute
     
     Video URL: {video_url}
     Transcript: {transcript}
@@ -346,6 +399,10 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
     """
     
     try:
+        if not model:
+            print("Gemini model not available")
+            return []
+            
         response = await asyncio.to_thread(
             model.generate_content, prompt
         )
@@ -367,17 +424,24 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
                 timestamps = []
                 for item in timestamps_data:
                     if isinstance(item, dict) and 'time' in item and 'description' in item and 'seconds' in item:
+                        # Validate the seconds value matches the time format
+                        expected_seconds = time_to_seconds(item['time'])
+                        if expected_seconds != item['seconds']:
+                            print(f"Warning: Seconds mismatch for {item['time']}. Expected: {expected_seconds}, Got: {item['seconds']}")
+                            # Use the calculated value instead
+                            item['seconds'] = expected_seconds
+                        
                         timestamps.append(Timestamp(
                             time=item['time'],
                             description=item['description'],
                             seconds=item['seconds']
                         ))
                 
-                # Sort by seconds to ensure chronological order
-                timestamps.sort(key=lambda x: x.seconds)
+                # Validate timestamps before returning
+                valid_timestamps = validate_timestamps(timestamps)
                 
-                print(f"Generated {len(timestamps)} timestamps from Gemini response")
-                return timestamps
+                print(f"Generated {len(valid_timestamps)} valid timestamps from Gemini response")
+                return valid_timestamps
                 
             except json.JSONDecodeError as e:
                 print(f"Failed to parse JSON from Gemini response: {e}")
@@ -385,7 +449,9 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
         
         # Fallback: try to extract timestamps using regex if JSON parsing fails
         print("JSON parsing failed, attempting regex extraction...")
-        return extract_timestamps_from_text(response_text)
+        fallback_timestamps = extract_timestamps_from_text(response_text)
+        valid_timestamps = validate_timestamps(fallback_timestamps)
+        return valid_timestamps
         
     except Exception as e:
         print(f"Error generating timestamps: {e}")
@@ -413,7 +479,36 @@ def extract_timestamps_from_text(text: str) -> List[Timestamp]:
         for match in matches:
             time_str = match.group(1)
             description = match.group(2).strip()
-            seconds = int(match.group(3)) if len(match.groups()) > 2 else time_to_seconds(time_str)
+            
+            # Validate time format
+            if not re.match(r'^\d{1,2}:\d{2}(:\d{2})?$', time_str):
+                print(f"Skipping invalid time format in regex extraction: {time_str}")
+                continue
+            
+            # Get seconds value
+            if len(match.groups()) > 2:
+                try:
+                    seconds = int(match.group(3))
+                    # Validate that seconds match the time format
+                    expected_seconds = time_to_seconds(time_str)
+                    if expected_seconds != seconds:
+                        print(f"Warning: Seconds mismatch in regex extraction. Time: {time_str}, Expected: {expected_seconds}, Got: {seconds}")
+                        seconds = expected_seconds
+                except (ValueError, TypeError):
+                    print(f"Invalid seconds value in regex extraction: {match.group(3)}")
+                    seconds = time_to_seconds(time_str)
+            else:
+                seconds = time_to_seconds(time_str)
+            
+            # Validate seconds
+            if seconds < 0:
+                print(f"Skipping timestamp with negative seconds: {time_str}")
+                continue
+            
+            # Reasonable upper limit (2 hours)
+            if seconds > 7200:
+                print(f"Skipping timestamp beyond reasonable limit: {time_str} ({seconds}s)")
+                continue
             
             # Clean up description
             description = re.sub(r'\s+', ' ', description)
@@ -505,19 +600,23 @@ async def generate_video_descriptions_and_embeddings(youtube_url_data: UrlAnalyz
         - "timestamp": integer (seconds from the start of the video)
         - "description": string (a detailed visual description of the scene)
 
-        Use MM:SS format for time.
-        
         Example JSON structure:
         [
             {
-                "timestamp": 1:10,
+                "timestamp": 70,
                 "description": "A wide shot of a cityscape with towering skyscrapers under a clear blue sky."
             },
             {
-                "timestamp": 00:45,
+                "timestamp": 45,
                 "description": "A close-up of a person's hands typing rapidly on a glowing holographic keyboard."
             }
         ]
+        
+        Important:
+        - Use integer seconds (not MM:SS format) for timestamps
+        - Ensure timestamps are within the video duration
+        - Provide detailed visual descriptions
+        - Limit to maximum 200 descriptions
         """
         
         print(f"Generating visual descriptions for '{youtube_url_string}' using 'gemini-2.0-flash'...")

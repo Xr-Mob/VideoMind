@@ -112,6 +112,8 @@ export function YouTubeAnalyzer() {
 
 
     try {
+
+      /* for Windows Users, if the port 8000 is occupied, use port 8001*/ 
       const response = await fetch("http://localhost:8001/analyze_video", {
         method: "POST",
         headers: {
@@ -152,6 +154,8 @@ export function YouTubeAnalyzer() {
     setGeneratingEmbeddings(true); // Set loading state for embedding generation
     setVisualSearchError(""); // Clear any previous errors
     try {
+
+      /* for Windows Users, if the port 8000 is occupied, use port 8001*/ 
       const response = await fetch("http://localhost:8001/generate_embeddings", {
         method: "POST",
         headers: {
@@ -184,6 +188,8 @@ export function YouTubeAnalyzer() {
     setVisualSearchResults([]);
 
     try {
+
+      /* for Windows Users, if the port 8000 is occupied, use port 8001*/ 
       const response = await fetch("http://localhost:8001/perform_visual_search", {
         method: "POST",
         headers: {
@@ -224,6 +230,8 @@ export function YouTubeAnalyzer() {
     setChatLoading(true);
 
     try {
+
+      /* for Windows Users, if the port 8000 is occupied, use port 8001*/ 
       const response = await fetch("http://localhost:8001/chat", {
         method: "POST",
         headers: {
@@ -293,7 +301,7 @@ export function YouTubeAnalyzer() {
           <span
             key={`timestamp-${timestampIndex}-${index}`}
             onClick={() => handleTimestampClick(timestamp.seconds)}
-            className="text-blue-400 hover:text-blue-300 font-mono font-medium transition-colors cursor-pointer underline ml-1"
+            className="text-blue-400 hover:text-blue-300 font-mono font-medium transition-colors cursor-pointer ml-1"
             title={`Jump to ${timestamp.time} - ${timestamp.description}`}
           >
             [{timestamp.time}]
