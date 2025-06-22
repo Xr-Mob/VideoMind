@@ -2,6 +2,12 @@
 
 A web application that analyzes YouTube videos and allows users to ask questions about the video content through a chatbot interface.
 
+## Authors
+
+- Kevin Binu Thottumkal
+- Jeesmon Cherian
+- Desmond Chen
+
 ## Features
 
 - **YouTube Video Analysis**: Paste a YouTube URL to analyze video content
@@ -15,22 +21,37 @@ A web application that analyzes YouTube videos and allows users to ask questions
 
 ```
 VideoMind-AI/
-├── frontend/                 # Next.js frontend application
+├── frontend/                       # Next.js frontend application
 │   ├── src/
-│   │   ├── app/             # Next.js app router
-│   │   └── components/      # React components
+│   │   ├── app/                    # Next.js app router
+│   │   └── components/             # React components
 │   │       ├── VideoAnalyzer.tsx
 │   │       ├── VideoDisplay.tsx
 │   │       ├── VideoTimestamps.tsx
 │   │       └── Chatbot.tsx
+│   ├── public/                     # Static assets (icons, images)
+│   ├── package.json                # Frontend dependencies
+│   ├── tsconfig.json               # TypeScript config
 │   └── ...
-├── backend/                  # FastAPI backend application
-│   ├── main.py              # Main FastAPI application
-│   ├── requirements.txt     # Python dependencies
-│   ├── setup.bat           # Windows setup script
-│   ├── setup.sh            # Unix/Linux setup script
-│   └── README.md           # Backend documentation
-└── README.md
+├── backend/                        # FastAPI backend application
+│   ├── main.py                     # Main FastAPI application
+│   ├── pdf_generator.py            # PDF generation logic
+│   ├── requirements.txt            # Python dependencies
+│   ├── setup.bat                   # Windows setup script
+│   ├── setup.sh                    # Unix/Linux setup script
+│   ├── generated_pdfs/             # Temporary PDF storage
+│   └── README.md                   # Backend documentation
+├── videomind_chrome_extension/     # Chrome extension for VideoMind
+│   ├── manifest.json               # Chrome extension manifest
+│   ├── content.js                  # Content script
+│   ├── background.js               # Background script
+│   ├── content.css                 # Extension styles
+│   ├── icon16.png                  # Extension icon (16x16)
+│   ├── icon48.png                  # Extension icon (48x48)
+│   └── icon128.png                 # Extension icon (128x128)
+├── .gitignore
+├── README.md
+└── package-lock.json
 ```
 
 ## Quick Start
@@ -42,18 +63,7 @@ VideoMind-AI/
    cd backend
    ```
 
-2. **Run setup script:**
-   - **Windows:** Double-click `setup.bat` or run:
-     ```bash
-     setup.bat
-     ```
-   - **Unix/Linux:** Run:
-     ```bash
-     chmod +x setup.sh
-     ./setup.sh
-     ```
-
-3. **Create environment file:**
+2. **Create environment file:**
    Create a `.env` file in the backend directory:
    ```env
    GEMINI_API_KEY=your_gemini_api_key_here
@@ -61,17 +71,28 @@ VideoMind-AI/
    
    Get your Gemini API key from: https://makersuite.google.com/app/apikey
 
-4. **Start the backend:**
+3. **Create the virtual machine to download the dependencies in:**
+     ```bash
+     python -m venv venv
+     ```
+
+4. **Activate the virtual machine:**
    ```bash
-   # Activate virtual environment first
    venv\Scripts\activate.bat  # Windows
    source venv/bin/activate   # Unix/Linux
    
-   # Start the server
-   python main.py
-   ```
 
-The backend will be available at `http://localhost:8000`
+5. **Download dependencies:**
+```bash
+pip install -r requirements.txt 
+```
+
+6. **Start the server:**
+```bash
+python main.py
+```
+
+The backend will be available at `http://localhost:8001`
 
 ### Frontend Setup
 
@@ -141,7 +162,7 @@ The frontend will be available at `http://localhost:3000`
    - Try: `pip install uvicorn[standard]`
 
 2. **CORS errors:**
-   - Ensure the backend is running on `http://localhost:8000`
+   - Ensure the backend is running on `http://localhost:8001`
    - Check that CORS is properly configured in the backend
 
 3. **API key errors:**
@@ -157,15 +178,3 @@ The frontend will be available at `http://localhost:3000`
 - **Backend logs**: Check the terminal where the backend is running
 - **Frontend logs**: Check the browser console (F12)
 - **Network issues**: Use browser dev tools to inspect API requests
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-This project is open source and available under the MIT License. 
