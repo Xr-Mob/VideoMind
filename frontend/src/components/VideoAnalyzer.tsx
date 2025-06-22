@@ -157,7 +157,8 @@ export function YouTubeAnalyzer() {
   };
 
   const formatSummaryWithClickableTimestamps = (text: string, timestamps: SummaryTimestamp[]) => {
-    if (timestamps.length === 0) {
+    // If no timestamps, just use the basic formatSummary
+    if (!timestamps || timestamps.length === 0) {
       return formatSummary(text);
     }
 
@@ -198,8 +199,8 @@ export function YouTubeAnalyzer() {
             [{timestamp.time}]
           </span>
         );
-      } else {
-        // Process regular text with formatting
+      } else if (part.trim()) {
+        // Process regular text with formatting - only if part is not empty
         const textElements = formatSummaryText(part, `text-${index}`);
         // Add a wrapper div with key to contain the text elements
         elements.push(
@@ -390,7 +391,7 @@ export function YouTubeAnalyzer() {
           type="button"
           disabled={!videoUrl.trim() || !isValidYouTubeUrl(videoUrl) || isAnalyzing}
           onClick={handleAnalyze}
-          className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+          className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
         >
           {isAnalyzing ? (
             <div className="flex items-center justify-center space-x-2">
@@ -431,16 +432,29 @@ export function YouTubeAnalyzer() {
         </div>
       )}
 
-      {/* Video Display Section */}
+      {/* Video Display and Timestamps Section - Side by Side */}
       {(showVideoDisplay || showTimestamps) && analysisComplete && (
         <div className="mt-8">
-          <VideoDisplay 
-            ref={videoDisplayRef}
-            videoUrl={videoUrl} 
-            isVisible={showVideoDisplay}
-            onTimestampClick={handleTimestampClick}
-            onReady={() => setVideoDisplayReady(true)}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start lg:h-[600px]">
+            {/* Video Player - Takes 2/3 of the width */}
+            <div className="lg:col-span-2 h-full">
+              <VideoDisplay 
+                ref={videoDisplayRef}
+                videoUrl={videoUrl} 
+                isVisible={showVideoDisplay}
+                onReady={() => setVideoDisplayReady(true)}
+              />
+            </div>
+            
+            {/* Video Timestamps - Takes 1/3 of the width */}
+            <div className="lg:col-span-1 h-full">
+              <VideoTimestamps 
+                videoUrl={videoUrl} 
+                isVisible={showTimestamps}
+                onTimestampClick={handleTimestampClick}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -468,7 +482,10 @@ export function YouTubeAnalyzer() {
           
           <div className="p-6 bg-white/[0.05] border border-white/[0.1] rounded-lg backdrop-blur-sm">
             <div className="prose prose-invert max-w-none">
-              {formatSummaryWithClickableTimestamps(summary, summaryTimestamps)}
+              {summaryTimestamps && summaryTimestamps.length > 0 
+                ? formatSummaryWithClickableTimestamps(summary, summaryTimestamps)
+                : formatSummary(summary)
+              }
             </div>
           </div>
           
@@ -569,17 +586,6 @@ export function YouTubeAnalyzer() {
               </form>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Video Timestamps Section */}
-      {showTimestamps && analysisComplete && (
-        <div className="mt-8">
-          <VideoTimestamps 
-            videoUrl={videoUrl} 
-            isVisible={showTimestamps}
-            onTimestampClick={handleTimestampClick}
-          />
         </div>
       )}
     </div>

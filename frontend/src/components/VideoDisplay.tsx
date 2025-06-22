@@ -5,7 +5,6 @@ import { useRef, useImperativeHandle, forwardRef, useEffect } from "react";
 interface VideoDisplayProps {
   videoUrl: string;
   isVisible: boolean;
-  onTimestampClick?: (seconds: number) => void;
   onReady?: () => void;
 }
 
@@ -14,7 +13,7 @@ export interface VideoDisplayRef {
 }
 
 export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
-  ({ videoUrl, isVisible, onTimestampClick, onReady }, ref) => {
+  ({ videoUrl, isVisible, onReady }, ref) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
     // Debug ref initialization
@@ -55,15 +54,6 @@ export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
       } catch (error) {
         console.error(`VideoDisplay: Error in navigateToTime:`, error);
       }
-      
-      // Also call the parent callback if provided
-      if (onTimestampClick) {
-        try {
-          onTimestampClick(seconds);
-        } catch (error) {
-          console.error(`VideoDisplay: Error calling parent onTimestampClick:`, error);
-        }
-      }
     };
 
     // Expose the navigateToTime function to parent components
@@ -85,29 +75,27 @@ export const VideoDisplay = forwardRef<VideoDisplayRef, VideoDisplayProps>(
     console.log(`VideoDisplay: Rendering with videoId: ${videoId}`);
 
     return (
-      <div className="bg-white/[0.03] rounded-lg border border-white/[0.1] p-6">
-        <div className="mb-4">
+      <div className="bg-white/[0.03] rounded-lg border border-white/[0.1] p-6 h-full flex flex-col">
+        <div className="mb-4 flex-shrink-0">
           <h3 className="text-lg font-medium text-white mb-2">Video Player</h3>
           <p className="text-sm text-zinc-400">
-            Watch the video and use timestamps below to navigate
+            Watch the video and use timestamps to navigate
           </p>
         </div>
 
-        <div className="relative w-full">
-          <div className="aspect-video w-full">
-            <iframe
-              ref={iframeRef}
-              src={embedUrl}
-              title="YouTube video player"
-              className="w-full h-full rounded-lg"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          </div>
+        <div className="relative w-full flex-1 min-h-0">
+          <iframe
+            ref={iframeRef}
+            src={embedUrl}
+            title="YouTube video player"
+            className="w-full h-full rounded-lg"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-sm text-zinc-400">
+        <div className="mt-4 flex items-center justify-between text-sm text-zinc-400 flex-shrink-0">
           <span>Video ID: {videoId}</span>
           <span>Click timestamps to navigate</span>
         </div>
