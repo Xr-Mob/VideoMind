@@ -6,7 +6,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Open in a new window, similar to a pop-up
     chrome.windows.create({
       url: analyzerUrl,
-      type: "popup",
+      type: "normal",
       state: "maximized"
     });
   }
