@@ -1,3 +1,6 @@
+# VIDEOMIND-AI: FastAPI application for intelligent YouTube video analysis
+# This application provides multimodal video analysis using Google's Gemini AI
+
 import asyncio
 import re
 import json
@@ -11,8 +14,8 @@ from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional
+from pdf_generator import router as pdf_router
 
-# Load environment variables
 load_dotenv()
 
 # --- Global In-Memory Storage for Video Embeddings ---
@@ -40,7 +43,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Allows CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost", "http://localhost:3000"],
@@ -48,6 +50,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+app.include_router(pdf_router)
 
 # Request models
 class UrlAnalyzeRequest(BaseModel):
@@ -143,7 +147,6 @@ async def get_video_transcript(video_id: str) -> Optional[str]:
     
     except Exception as e:
         print(f"Error fetching transcript: {e}")
-        # Return None if no transcript available
         return None
 
 def time_to_seconds(time_str: str) -> int:
@@ -242,7 +245,6 @@ def extract_timestamps_from_summary(summary: str) -> List[SummaryTimestamp]:
 async def generate_video_summary_with_timestamps(transcript: Optional[str], video_url: str) -> tuple[str, List[SummaryTimestamp]]:
     """Generate summary using Gemini with timestamps included"""
     if not transcript:
-        # If no transcript, provide a message
         return "Unable to generate summary: No transcript available for this video. The video might not have captions enabled.", []
     
     # Limit transcript length to avoid token limits
@@ -316,7 +318,6 @@ async def generate_chat_response(transcript: Optional[str], query: str, video_ur
     if not transcript:
         return "I'm sorry, but I don't have access to the video transcript to answer your question. The video might not have captions enabled."
     
-    # Limit transcript length to avoid token limits
     max_chars = 10000
     if len(transcript) > max_chars:
         transcript = transcript[:max_chars] + "..."
@@ -407,20 +408,16 @@ async def generate_timestamps(transcript: Optional[str], video_url: str) -> List
             model.generate_content, prompt
         )
         
-        # Extract JSON from the response
         response_text = response.text.strip()
         
-        # Try to find JSON array in the response
         import json
         
-        # Look for JSON array pattern
         json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
         if json_match:
             json_str = json_match.group(0)
             try:
                 timestamps_data = json.loads(json_str)
                 
-                # Validate and convert to Timestamp objects
                 timestamps = []
                 for item in timestamps_data:
                     if isinstance(item, dict) and 'time' in item and 'description' in item and 'seconds' in item:
@@ -462,7 +459,6 @@ def extract_timestamps_from_text(text: str) -> List[Timestamp]:
     """Extract timestamps from text using regex patterns as fallback"""
     timestamps = []
     
-    # Pattern to match timestamp entries in various formats
     patterns = [
         # Pattern for "time": "MM:SS", "description": "...", "seconds": N
         r'"time":\s*"(\d{1,2}:\d{2})",\s*"description":\s*"([^"]+)",\s*"seconds":\s*(\d+)',
@@ -538,7 +534,6 @@ def extract_timestamps_from_text(text: str) -> List[Timestamp]:
 async def analyze_youtube_video(request_data: UrlAnalyzeRequest):
     youtube_url = request_data.youtube_url
     
-    # Basic URL validation
     if not youtube_url.startswith("http") or ("youtube.com" not in youtube_url and "youtu.be" not in youtube_url):
         raise HTTPException(status_code=400, detail="Invalid YouTube URL format provided.")
     
@@ -652,7 +647,6 @@ async def generate_video_descriptions_and_embeddings(youtube_url_data: UrlAnalyz
         raw_descriptions_json = gemini_response.candidates[0].content.parts[0].text
         parsed_descriptions = json.loads(raw_descriptions_json)
 
-        # Generate embeddings for each description and store them
         embedded_descriptions = []
         for desc_obj in parsed_descriptions:
             description_text = desc_obj["description"]
@@ -691,7 +685,7 @@ async def generate_video_descriptions_and_embeddings(youtube_url_data: UrlAnalyz
                    "Ensure the video is public and accessible, and Gemini API key is valid."
         )
 
-# NEW ENDPOINT: Perform Natural Language Visual Search
+# Perform Natural Language Visual Search
 @app.post("/perform_visual_search", response_model=VisualSearchResultsResponse)
 async def perform_visual_search(request_data: VisualSearchRequest):
     video_url_to_search = request_data.youtube_url
@@ -835,3 +829,7 @@ async def health_check():
         "status": "healthy",
         "api_key_configured": api_key_configured
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -223,6 +223,34 @@ export function YouTubeAnalyzer() {
     }
   };
 
+  const downloadSummaryPDF = async () => {
+    try {
+      const response = await fetch('http://localhost:8001/download_summary_pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ summary: summary })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'video_summary.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Failed to download PDF. Please try again.');
+    }
+  };
 
   const askQuestion = async () => {
     if (!currentQuestion.trim() || !videoUrl) return;
@@ -607,28 +635,39 @@ export function YouTubeAnalyzer() {
         <div className="space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white">Video Summary</h2>
-            <button
-              onClick={() => {
-                setSummary("");
-                setSummaryTimestamps([]);
-                setVideoUrl("");
-                setShowTimestamps(false);
-                setShowVideoDisplay(false);
-                setAnalysisComplete(false);
-                setChatMessages([]);
-                setShowChat(false);
-                // NEW: Clear visual search states as well
-                setVisualSearchQuery("");
-                setVisualSearchResults([]);
-                setVisualSearchError("");
-                setShowVisualSearch(false);
-                setEmbeddingsGenerated(false); // Clear embeddings generated state
-                setGeneratingEmbeddings(false); // Clear generating embeddings state
-              }}
-              className="text-sm text-zinc-400 hover:text-white transition-colors"
-            >
-              Clear
-            </button>
+            <div className="flex items-center space-x-3">
+                <button
+                onClick={downloadSummaryPDF}
+                className="flex items-center space-x-1 text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Download PDF</span>
+                </button>
+                <button
+                onClick={() => {
+                    setSummary("");
+                    setSummaryTimestamps([]);
+                    setVideoUrl("");
+                    setShowTimestamps(false);
+                    setShowVideoDisplay(false);
+                    setAnalysisComplete(false);
+                    setChatMessages([]);
+                    setShowChat(false);
+                    // NEW: Clear visual search states as well
+                    setVisualSearchQuery("");
+                    setVisualSearchResults([]);
+                    setVisualSearchError("");
+                    setShowVisualSearch(false);
+                    setEmbeddingsGenerated(false); // Clear embeddings generated state
+                    setGeneratingEmbeddings(false); // Clear generating embeddings state
+                }}
+                className="text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                Clear
+                </button>
+            </div>
           </div>
           
           <div className="p-6 bg-white/[0.05] border border-white/[0.1] rounded-lg backdrop-blur-sm">
@@ -746,7 +785,7 @@ export function YouTubeAnalyzer() {
       {showVisualSearch && summary && ( // Show only if summary is present and embeddings are ready
         <div className="space-y-4 animate-fadeIn">
           <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-semibold text-white">Visual Search</h2>
+            <h2 className="text-xl font-semibold text-white">Visual Embedding Analysis</h2>
             <svg 
               className="w-5 h-5 text-zinc-400" 
               fill="none" 
@@ -832,9 +871,7 @@ export function YouTubeAnalyzer() {
                   <div key={index} className="bg-zinc-800 p-3 rounded-lg text-zinc-200 text-sm">
                     <p>
                       <a
-                        href={generateYouTubeTimestampLink(videoUrl, result.timestamp)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => handleTimestampClick(result.timestamp)}
                         className="text-blue-400 hover:text-blue-300 underline font-medium"
                       >
                         [{formatSecondsToMMSS(result.timestamp)}]

@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "VideoMind",
+  "version": "1.0",
+  "description": "Analyzes YouTube videos and provides a summary and chat functionality.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "http://localhost:3000/*" 
+  ],
+  "web_accessible_resources": [ 
+    {
+      "resources": ["icon48.png"],
+      "matches": ["*://*.youtube.com/*"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/watch*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  }
+}

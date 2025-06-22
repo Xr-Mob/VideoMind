@@ -5,3 +5,4 @@ youtube-transcript-api
 python-dotenv
 pydantic
 numpy
+fpdf
