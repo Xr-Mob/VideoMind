@@ -28,12 +28,10 @@ try:
         raise ValueError("API Key not found in enviornment variables!")
     genai.configure(api_key=gen_api_key)
     #Text analysis model
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel(os.getenv("GEMINI_MODEL_NAME", 'gemini-1.5-flash'))
 except ValueError as e:
     print(f"Configuration Error: {e}")
     model =None
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')  # Using 1.5 flash for text analysis
 
 app = FastAPI(
     title="VIDEOMIND-AI",
