@@ -42,3 +42,6 @@ next-env.d.ts
 
 *.iml
 .idea/
+backend/__pycache__/main.cpython-311.pyc
+.gitignore
+backend/__pycache__/pdf_generator.cpython-311.pyc
