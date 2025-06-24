@@ -1,4 +1,4 @@
-# VIDEOMIND-AI: FastAPI application for intelligent YouTube video analysis
+# VIDEOMIND: FastAPI application for intelligent YouTube video analysis
 # This application provides multimodal video analysis using Google's Gemini AI
 
 import asyncio
