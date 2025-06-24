@@ -1,4 +1,4 @@
-# VideoMind AI
+# VideoMind
 
 A web application that analyzes YouTube videos and allows users to ask questions about the video content through a chatbot interface.
 
